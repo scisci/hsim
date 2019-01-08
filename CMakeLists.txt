@@ -4,6 +4,8 @@ project(hsimall)
 #enable_testing()
 set(BUILD_TESTS_DEFAULT OFF) # Turn off htree tests
 
+add_compile_options(-std=c++11)
+
 
 # Start PhysX config
 set(PHYSX_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/PhysX/physx")

@@ -16,7 +16,7 @@ class Simulation
 public:
   Simulation(const std::string &name);
 
-  std::string Name();
+  std::string Name() const;
 
 private:
   std::string name_;

@@ -1,3 +1,10 @@
 [submodule "extern/PhysX"]
 	path = extern/PhysX
 	url = ../../NVIDIAGameWorks/PhysX
+[submodule "extern/googletest"]
+	path = extern/googletest
+	url = ../../abseil/googletest.git
+	branch = v1.8.x
+[submodule "extern/htreecpp"]
+	path = extern/htreecpp
+	url = ../htreecpp

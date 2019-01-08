@@ -15,7 +15,6 @@ add_subdirectory(${PHYSX_ROOT_DIR}/source/compiler/cmake ${CMAKE_CURRENT_BINARY_
 FIND_PACKAGE(OpenGL REQUIRED)
 FIND_PACKAGE(GLUT REQUIRED)
 
-add_compile_options(-std=c++11)
 
 file(GLOB srcs "src/*.cpp" "src/*.hpp")
 

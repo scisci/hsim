@@ -6,6 +6,7 @@
 //
 
 #include <cmath>
+#include <string>
 
 #include "hsim/Simulation.hpp"
 
