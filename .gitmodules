@@ -1,0 +1,6 @@
+[submodule "extern/htreecpp"]
+	path = extern/htreecpp
+	url = ../htreecpp
+[submodule "extern/PhysX"]
+	path = extern/PhysX
+	url = ../../NVIDIAGameWorks/PhysX
