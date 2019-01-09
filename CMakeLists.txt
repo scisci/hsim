@@ -15,6 +15,8 @@ set(PXSHARED_PATH "${PHYSX_ROOT_DIR}/../pxshared")
 set(ENV{PM_CMakeModules_PATH} "${PHYSX_ROOT_DIR}/../externals/cmakemodules")
 set(CMAKE_PREFIX_PATH "${PHYSX_ROOT_DIR}/../externals/opengl-linux")
 
+# Temporary for eigen
+include_directories(SYSTEM /usr/local/include/eigen3)
 
 # Start HTREE lib config
 add_subdirectory(extern/htreecpp/htree)

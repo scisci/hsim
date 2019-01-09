@@ -2,7 +2,9 @@ find_package(Boost 1.67.0 REQUIRED COMPONENTS graph)
 include_directories(SYSTEM /usr/local/include/eigen3)
 
 file(GLOB srcs "src/*.cpp")
-add_library(hsim ${srcs})
+file(GLOB includes "include/hsim/*.hpp")
+
+add_library(hsim ${srcs} ${includes})
 
 target_include_directories(hsim PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

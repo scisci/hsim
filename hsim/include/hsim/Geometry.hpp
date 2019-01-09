@@ -4,7 +4,7 @@
 
 #include <Eigen/Geometry>
 
-#include "hsim/Math.h"
+#include "hsim/Math.hpp"
 
 namespace hsim {
 

@@ -43,7 +43,7 @@ public:
 
 class RigidDynamic : public RigidActor {
 public:
-  virtual ActorType Type() const { return ActorType::kRigidDynamic }
+  virtual ActorType Type() const { return ActorType::kRigidDynamic; }
   virtual Real Mass() const = 0;
   virtual const Vector3& CenterOfMass() const = 0;
   virtual const Matrix3& InertiaTensor() const = 0;

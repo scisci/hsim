@@ -10,7 +10,7 @@ namespace hsim {
 typedef double Real;
 
 typedef Eigen::Matrix<Real, 3, 3> Matrix3;
-typedef Eigen::Vector<Real, 3> Vector3;
+typedef Eigen::Matrix<Real, 3, 1> Vector3;
 
 } // namespace hsim
 
