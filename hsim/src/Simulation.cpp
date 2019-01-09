@@ -13,14 +13,6 @@
 namespace hsim
 {
 
-Simulation::Simulation(const std::string &name)
-    : name_(name)
-{
-}
 
-std::string Simulation::Name() const
-{
-  return name_;
-}
 
 } // namespace hsim

@@ -7,7 +7,7 @@
 #include "SnippetRender.hpp"
 
 #include "htree/Golden.hpp"
-#include "hsim/Simulation.hpp"
+#include "hsim/Physics.hpp"
 
 using namespace physx;
 
@@ -206,7 +206,7 @@ void renderLoop()
 
 int main(int argc, char *argv[])
 {
-  hsim::Simulation sim("johnny");
+ // hsim::Simulation sim("johnny");
   
   htree::golden::GoldenRatioSource source;
   const htree::Ratios& ratios = source.Ratios();

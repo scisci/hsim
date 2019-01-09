@@ -11,16 +11,7 @@
 namespace hsim
 {
 
-class Simulation
-{
-public:
-  Simulation(const std::string &name);
 
-  std::string Name() const;
-
-private:
-  std::string name_;
-};
 
 } // namespace hsim
 
