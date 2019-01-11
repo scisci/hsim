@@ -1,0 +1,101 @@
+
+#ifndef HSIM_PROJECT_HPP
+#define HSIM_PROJECT_HPP
+
+#include "hsim/Physics.hpp"
+
+#include "htree/Golden.hpp"
+#include "htree/RandomBasicGenerator.hpp"
+#include "htree/RegionIterator.hpp"
+#include "htree/EdgePathAttributer.hpp"
+
+#include <memory>
+
+namespace hsim {
+
+class Project {
+public:
+  Project()
+  :rng(rd())
+  {}
+  
+  virtual ~Project() {}
+  
+  // Should generate a new iteration of the tree specified
+  std::unique_ptr<htree::Tree> GenerateTree()
+  {
+    std::uniform_int_distribution<int64_t> seed_dist(0, std::numeric_limits<int64_t>::max());
+    htree::RatioSourcePtr ratio_source(new htree::golden::GoldenRatioSource());
+    double container_ratio_xy = 0.25;
+    double container_ratio_zy = 0.25;
+    
+    int num_leaves = std::uniform_int_distribution<>(200, 400)(rng);
+
+    htree::RandomBasicGenerator gen(ratio_source, container_ratio_xy, container_ratio_zy, num_leaves, seed_dist(rng));
+    return gen.Generate();
+  }
+  
+  htree::StringNodeAttributes Attribute(const htree::Tree& tree)
+  {
+    std::uniform_int_distribution<int64_t> seed_dist(0, std::numeric_limits<int64_t>::max());
+    double attr_chaos = 1.0;
+    htree::EdgePathAttributer attributer(
+      {{ .from = htree::EdgeName::kEdgeNameBottom, .to = htree::EdgeName::kEdgeNameTop }},
+      attr_chaos,
+      seed_dist(rng));
+    
+    return attributer.Attribute(tree);
+  }
+  
+  std::unique_ptr<Actor> CreateActor(const htree::Tree& tree, const htree::StringNodeAttributes& attributes)
+  {
+    Real height_meters = 2.0;
+    Real scale = height_meters / 1.0;
+    htree::Vector origin(-scale / 2.0, -scale / 2.0, -scale / 2.0);
+    htree::RegionIterator rit(tree, origin, scale);
+    
+    hsim::RigidBodyBuilder builder;
+    Real density = 737.0; // Fir kg/m3
+    
+    // Set to Wood on Wood
+    builder.SetMaterial({
+      .restitution = 0.6,
+      .static_friction = 0.25,
+      .kinetic_friction = 0.2});
+    
+    while (rit.HasNext()) {
+      htree::NodeRegion node_region = rit.Next();
+      if (node_region.node->Branch() != nullptr) {
+        continue;
+      }
+      
+      // TODO: filter out here
+      auto result = attributes.Attribute(node_region.node->ID(), "onPath");
+      if (!result.second) {
+        continue;
+      }
+      
+      const htree::AlignedBox& box = node_region.region.AlignedBox();
+      Transform transform = Transform::Identity();
+      transform.translation() = box.center();
+      
+      builder.AddShape(std::unique_ptr<Geometry>(
+        new Box(
+          htree::AlignedBoxWidth(box),
+          htree::AlignedBoxHeight(box),
+          htree::AlignedBoxDepth(box))),
+        density,
+        transform);
+    }
+    
+    return builder.Build();
+  }
+  
+private:
+  std::random_device rd;
+  std::mt19937_64 rng;
+};
+
+} // namespace hsim
+
+#endif // HSIM_PROJECT_HPP
