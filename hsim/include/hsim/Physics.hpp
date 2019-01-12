@@ -54,6 +54,7 @@ public:
   virtual Real Mass() const = 0;
   virtual const Vector3& CenterOfMass() const = 0;
   virtual const Matrix3& InertiaTensor() const = 0;
+  virtual const Transform& Transform() const = 0;
   //virtual Vector6 SpatialVelocity() const = 0;
   
   /*
@@ -99,22 +100,26 @@ public:
       Real mass,
       const Vector3& center_of_mass,
       const Matrix3& inertia_tensor,
+      const hsim::Transform& transform,
       std::vector<std::unique_ptr<Shape>>&& shapes)
   : mass_(mass),
     center_of_mass_(center_of_mass),
     inertia_tensor_(inertia_tensor),
+    transform_(transform),
     shapes_(std::move(shapes))
   {}
 
   virtual Real Mass() const { return mass_; }
   virtual const Vector3& CenterOfMass() const { return center_of_mass_; }
   virtual const Matrix3& InertiaTensor() const { return inertia_tensor_; }
+  virtual const hsim::Transform& Transform() const { return transform_; }
   virtual const std::vector<std::unique_ptr<Shape>>& Shapes() const { return shapes_; }
 
 private:
   Real mass_;
   Vector3 center_of_mass_;
   Matrix3 inertia_tensor_;
+  hsim::Transform transform_;
   std::vector<std::unique_ptr<Shape>> shapes_;
 };
 
@@ -156,7 +161,8 @@ private:
 class RigidBodyBuilder {
 public:
   RigidBodyBuilder()
-  :  material_(new MaterialImpl({
+  : transform_(Transform::Identity()),
+    material_(new MaterialImpl({
       .restitution = 1.0,
       .static_friction = 0.25,
       .kinetic_friction = 0.25}))
@@ -178,6 +184,11 @@ public:
   void SetMaterial(const MaterialCoefficients& coefficients)
   {
     material_ = std::make_shared<MaterialImpl>(coefficients);
+  }
+  
+  void SetTransform(const Transform& transform)
+  {
+    transform_ = transform;
   }
   
   std::unique_ptr<RigidBody> Build()
@@ -213,7 +224,12 @@ public:
     shapes_.clear();
     
     return std::unique_ptr<RigidBody>(
-      new RigidBodyImpl(total_mass, total_com, total_inertia, std::move(shapes)));
+      new RigidBodyImpl(
+        total_mass,
+        total_com,
+        total_inertia,
+        transform_,
+        std::move(shapes)));
   }
   
 private:
@@ -239,6 +255,7 @@ private:
     return result;
   }
   
+  Transform transform_;
   std::shared_ptr<MaterialImpl> material_;
   std::vector<ShapeProps> shapes_;
 };

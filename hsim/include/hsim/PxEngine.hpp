@@ -11,6 +11,7 @@
 #include "PxPhysicsAPI.h"
 
 #include "hsim/Physics.hpp"
+#include "hsim/Scene.hpp"
 
 #define PVD_HOST "127.0.0.1"  //Set this to the IP address of the system running the PhysX Visual Debugger that you want to connect to.
 
@@ -30,7 +31,7 @@ public:
     }
   }
   
-  T* FindOrInsert(const P *pub, Actor *actor)
+  T* FindOrInsert(const P *pub, const Actor *actor)
   {
     auto it = items_.find(pub);
     if (it == items_.end()) {
@@ -44,7 +45,7 @@ public:
     return it->second.first;
   }
   
-  void RemoveActor(Actor *actor)
+  void RemoveActor(const Actor *actor)
   {
     auto it = by_actor_.find(actor);
     if (it == by_actor_.end()) {
@@ -61,8 +62,8 @@ public:
   }
   
 private:
-  std::unordered_map<const P*, std::pair<T*, Actor*>> items_;
-  std::unordered_map<Actor*, std::vector<const P*>> by_actor_;
+  std::unordered_map<const P*, std::pair<T*, const Actor*>> items_;
+  std::unordered_map<const Actor*, std::vector<const P*>> by_actor_;
   std::function<T*(const P*)> factory_;
 };
 
@@ -84,6 +85,16 @@ private:
   physx::PxPhysics *physics_;
 };
 
+class PxScene : public Scene {
+public:
+/*
+  virtual void AddBoxCluster(const BoxCluster& box_cluster)
+  {
+    
+  }
+  */
+};
+
 class PxSimulation : public Simulation {
 public:
   PxSimulation(physx::PxPhysics* physics, const physx::PxSceneDesc& scene_desc)
@@ -97,10 +108,26 @@ public:
       pvd_client->setScenePvdFlag(physx::PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
       pvd_client->setScenePvdFlag(physx::PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
     }
+    
+    floor_material_ = physics_->createMaterial(0.5f, 0.5f, 0.6f);
+
+    physx::PxRigidStatic* groundPlane = PxCreatePlane(*physics_, physx::PxPlane(0,1,0,0), *floor_material_);
+    scene_->addActor(*groundPlane);
+    //groundPlane->release();
   }
   
   virtual ~PxSimulation() {
     scene_->release();
+  }
+  
+  physx::PxPhysics* PhysicsRoot()
+  {
+    return physics_;
+  }
+  
+  physx::PxScene* Scene()
+  {
+    return scene_;
   }
   
   virtual void AddActor(std::shared_ptr<Actor> actor)
@@ -110,12 +137,17 @@ public:
       case kRigidDynamic:
       {
         RigidDynamic *subject = static_cast<RigidDynamic *>(actor.get());
+        physx::PxTransform transform = ConvertTransform(subject->Transform());
+        physx::PxRigidDynamic* body = physics_->createRigidDynamic(transform);
         const auto& shapes = subject->Shapes();
         for (auto it = shapes.begin(); it != shapes.end(); ++it) {
-          std::shared_ptr<const Material> material = it->get()->Material();
-          physx::PxMaterial *px_material = factory_.materials.FindOrInsert(material.get(), actor.get());
-          px_material = factory_.materials.FindOrInsert(material.get(), actor.get());
+          physx::PxShape *shape = CreateShape(*(it->get()), subject);
+          body->attachShape(*shape);
+          shape->release();
         }
+        physx::PxRigidBodyExt::updateMassAndInertia(*body, 737.0f);
+        scene_->addActor(*body);
+        //body->release();
       }
       default:
         // Can't create
@@ -135,9 +167,53 @@ public:
   }
   
 private:
+  physx::PxTransform ConvertTransform(const hsim::Transform& transform)
+  {
+    float values[16];
+    const hsim::Transform::MatrixType& matrix = transform.matrix();
+    for (int i = 0; i < 16; i++) {
+      values[i] = matrix(i);
+    }
+    return physx::PxTransform(physx::PxMat44(values));
+  }
+  
+  physx::PxShape* CreateShape(const Shape& shape, const Actor* handle)
+  {
+    physx::PxShape *px_shape = nullptr;
+    
+    const Geometry& geometry = shape.Geometry();
+    std::shared_ptr<const Material> material = shape.Material();
+    physx::PxMaterial *px_material = factory_.materials.FindOrInsert(material.get(), handle);
+    
+    switch (geometry.Type()) {
+      case kBox:
+      {
+        const Box& box = static_cast<const Box&>(geometry);
+        px_shape = physics_->createShape(
+          physx::PxBoxGeometry(box.Width() * 0.5, box.Height() * 0.5, box.Depth() * 0.5),
+          *px_material);
+      }
+      break;
+      case kSphere:
+      {
+        const Sphere& sphere = static_cast<const Sphere&>(geometry);
+        px_shape = physics_->createShape(
+          physx::PxSphereGeometry(sphere.Radius()),
+          *px_material);
+      }
+      break;
+      default:
+        assert(false);
+    }
+    
+    px_shape->setLocalPose(ConvertTransform(shape.Transform()));
+    return px_shape;
+  }
+  
   physx::PxPhysics *physics_;
   physx::PxScene *scene_;
   PxFactory factory_;
+  physx::PxMaterial *floor_material_;
 };
 
 class PxEngine : public PhysicsEngine {
@@ -159,16 +235,7 @@ public:
 
     
     /*
-    gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.6f);
-
-    PxRigidStatic* groundPlane = PxCreatePlane(*gPhysics, PxPlane(0,1,0,0), *gMaterial);
-    gScene->addActor(*groundPlane);
-
-    for(PxU32 i=0;i<5;i++)
-      createStack(PxTransform(PxVec3(0,0,stackZ-=10.0f)), 10, 2.0f);
-
-    if(!interactive)
-      createDynamic(PxTransform(PxVec3(0,40,100)), PxSphereGeometry(10), PxVec3(0,-50,-100));
+    
   }
 */
   }

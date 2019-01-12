@@ -3,6 +3,7 @@
 #define HSIM_PROJECT_HPP
 
 #include "hsim/Physics.hpp"
+#include "hsim/Models.hpp"
 
 #include "htree/Golden.hpp"
 #include "htree/RandomBasicGenerator.hpp"
@@ -12,6 +13,7 @@
 #include <memory>
 
 namespace hsim {
+
 
 class Project {
 public:
@@ -46,12 +48,50 @@ public:
     
     return attributer.Attribute(tree);
   }
+  /*
+  BoxCluster BuildGeometry(const htree::Tree& tree, const htree::StringNodeAttributes& attributes)
+  {
+    BoxCluster result;
+    
+    // Wood on Wood
+    result.material = {
+      .restitution = 0.6,
+      .static_friction = 0.25,
+      .kinetic_friction = 0.2
+    };
+    
+    // Fir kg/m3
+    result.density = 737.0;
+    
+    Real height_meters = 2.0;
+    Real scale = height_meters / 1.0;
+    htree::Vector origin(-scale / 2.0, -scale / 2.0, -scale / 2.0);
+    htree::RegionIterator rit(tree, origin, scale);
+    
+    while (rit.HasNext()) {
+      htree::NodeRegion node_region = rit.Next();
+      if (node_region.node->Branch() != nullptr) {
+        continue;
+      }
+
+      auto on_path = attributes.Attribute(node_region.node->ID(), "onPath");
+      if (!on_path.second) {
+        continue;
+      }
+      
+      const htree::AlignedBox& box = node_region.region.AlignedBox();
+      result.boxes.push_back(box);
+    }
+    
+    return result;
+  }
+  */
   
   std::unique_ptr<Actor> CreateActor(const htree::Tree& tree, const htree::StringNodeAttributes& attributes)
   {
     Real height_meters = 2.0;
     Real scale = height_meters / 1.0;
-    htree::Vector origin(-scale / 2.0, -scale / 2.0, -scale / 2.0);
+    htree::Vector origin(0.0, 0.0, 0.0);
     htree::RegionIterator rit(tree, origin, scale);
     
     hsim::RigidBodyBuilder builder;
@@ -62,6 +102,18 @@ public:
       .restitution = 0.6,
       .static_friction = 0.25,
       .kinetic_friction = 0.2});
+    /*
+    for (int i = 0; i < 4; i++) {
+      Transform transform = Transform::Identity();
+      transform.translation() = Vector3(1.0 * i,3.0, 0.0 * i);
+      builder.AddShape(std::unique_ptr<Geometry>(
+        new Box(
+          0.5,
+          0.5,
+          1.0)),
+        density,
+        transform);
+    }*/
     
     while (rit.HasNext()) {
       htree::NodeRegion node_region = rit.Next();
@@ -90,6 +142,7 @@ public:
     
     return builder.Build();
   }
+  
   
 private:
   std::random_device rd;

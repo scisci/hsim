@@ -292,6 +292,7 @@ void startRender(const PxVec3& cameraEye, const PxVec3& cameraDir, PxReal clipNe
 
 void renderActors(PxRigidActor** actors, const PxU32 numActors, bool shadows, const PxVec3 & color)
 {
+  float colors[] = {1.0, 0.5, 0.5, 0.25, 0.0, 0.75, 0.9, 0.1, 0.1, 0.6, 0.0, 0.1};
 	PxShape* shapes[MAX_NUM_ACTOR_SHAPES];
 	for(PxU32 i=0;i<numActors;i++)
 	{
@@ -311,13 +312,17 @@ void renderActors(PxRigidActor** actors, const PxU32 numActors, bool shadows, co
 			// render object
 			glPushMatrix();						
 			glMultMatrixf(reinterpret_cast<const float*>(&shapePose));
-			if(sleeping)
+			  float* rc = &colors[(j % 4) * 3];
+     PxVec3 mycolor(rc[0], rc[1], rc[2]);
+      if(sleeping)
 			{
-				PxVec3 darkColor = color * 0.25f;
+				PxVec3 darkColor = mycolor * 0.25f;
 				glColor4f(darkColor.x, darkColor.y, darkColor.z, 1.0f);
 			}
-			else
-				glColor4f(color.x, color.y, color.z, 1.0f);
+			else {
+        
+				glColor4f(mycolor.x, mycolor.y, mycolor.z, 1.0f);
+      }
 			renderGeometry(h);
 			glPopMatrix();
 

@@ -93,7 +93,7 @@ void idleCallback()
 
 void renderCallback()
 {
-  sSimulation->Step(1.0f / 60.0f);
+  sSimulation->Step(1.0f / 120.0f);
   Snippets::startRender(sCamera->getEye(), sCamera->getDir());
 
   physx::PxScene* scene;
@@ -123,13 +123,13 @@ void renderLoop()
   std::unique_ptr<htree::Tree> tree = project.GenerateTree();
   htree::StringNodeAttributes attributes = project.Attribute(*tree.get());
   sActor = project.CreateActor(*tree.get(), attributes);
-  
+
   sEngine = new hsim::PxEngine();
   sSimulation = sEngine->InitSimulation();
   sSimulation->AddActor(sActor);
   
   
-  sCamera = new Snippets::Camera(physx::PxVec3(50.0f, 50.0f, 50.0f), physx::PxVec3(-0.6f,-0.2f,-0.7f));
+  sCamera = new Snippets::Camera(physx::PxVec3(2.0f, 2.0f, 2.0f), physx::PxVec3(-0.6f,-0.2f,-0.7f));
 
   Snippets::setupDefaultWindow("PhysX Snippet HelloWorld");
   Snippets::setupDefaultRenderState();
