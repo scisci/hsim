@@ -63,7 +63,9 @@ namespace
 {
 hsim::PxEngine *sEngine;
 hsim::Simulation *sSimulation;
-std::shared_ptr<hsim::Actor> sActor;
+std::unique_ptr<hsim::Actor> sActor;
+hsim::ActorAgent *sActorAgent;
+
 Snippets::Camera*  sCamera;
 
 void motionCallback(int x, int y)
@@ -71,14 +73,19 @@ void motionCallback(int x, int y)
   sCamera->handleMotion(x, y);
 }
 
+void onSleepCallback(hsim::ActorAgent *agent)
+{
+  std::cout << "did sleep" << std::endl;
+}
+
 void keyboardCallback(unsigned char key, int x, int y)
 {
   if(key==27)
     exit(0);
-/*
-  if(!sCamera->handleKey(key, x, y))
-    keyPress(key, sCamera->getTransform());
-    */
+
+  if(!sCamera->handleKey(key, x, y, 0.1))
+    ;//keyPress(key, sCamera->getTransform());
+  
 }
 
 void mouseCallback(int button, int state, int x, int y)
@@ -126,7 +133,10 @@ void renderLoop()
 
   sEngine = new hsim::PxEngine();
   sSimulation = sEngine->InitSimulation();
-  sSimulation->AddActor(sActor);
+  sActorAgent = sSimulation->AddActor(*(sActor.get()));
+  assert(sActorAgent != nullptr);
+  
+  sActorAgent->ConnectDidSleep(std::bind(onSleepCallback, sActorAgent));
   
   
   sCamera = new Snippets::Camera(physx::PxVec3(2.0f, 2.0f, 2.0f), physx::PxVec3(-0.6f,-0.2f,-0.7f));

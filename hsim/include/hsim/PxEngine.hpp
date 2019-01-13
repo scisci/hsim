@@ -11,7 +11,6 @@
 #include "PxPhysicsAPI.h"
 
 #include "hsim/Physics.hpp"
-#include "hsim/Scene.hpp"
 
 #define PVD_HOST "127.0.0.1"  //Set this to the IP address of the system running the PhysX Visual Debugger that you want to connect to.
 
@@ -27,27 +26,27 @@ public:
   
   virtual ~PxLookup() {
     for (auto it = by_actor_.begin(); it != by_actor_.end(); ++it) {
-      RemoveActor(it->first);
+      RemoveActor(*(it->first));
     }
   }
   
-  T* FindOrInsert(const P *pub, const Actor *actor)
+  T* FindOrInsert(const P *pub, const Actor& actor)
   {
     auto it = items_.find(pub);
     if (it == items_.end()) {
       T *api = factory_(pub);
-      items_.insert(std::make_pair(pub, std::make_pair(api, actor)));
+      items_.insert(std::make_pair(pub, std::make_pair(api, &actor)));
       std::vector<const P*> bitems = {pub};
-      by_actor_.insert(std::make_pair(actor, bitems));
+      by_actor_.insert(std::make_pair(&actor, bitems));
       return api;
     }
     
     return it->second.first;
   }
   
-  void RemoveActor(const Actor *actor)
+  void RemoveActor(const Actor& actor)
   {
-    auto it = by_actor_.find(actor);
+    auto it = by_actor_.find(&actor);
     if (it == by_actor_.end()) {
       return;
     }
@@ -80,28 +79,89 @@ public:
   {}
   
   PxLookup<Material, physx::PxMaterial> materials;
-  
+  std::unordered_map<const Actor*, physx::PxActor *> actors;
 private:
   physx::PxPhysics *physics_;
 };
 
-class PxScene : public Scene {
+class PxActorAgent : public ActorAgent {
 public:
-/*
-  virtual void AddBoxCluster(const BoxCluster& box_cluster)
-  {
-    
-  }
-  */
+  virtual physx::PxActor& Instance() const = 0;
+  
+  virtual void HandleDidSleep() = 0;
 };
 
-class PxSimulation : public Simulation {
+class PxRigidDynamicAgent : public PxActorAgent {
+public:
+  PxRigidDynamicAgent(const Actor& model, physx::PxRigidDynamic *inst)
+  : model_(&model),
+    inst_(inst)
+  {}
+  
+  virtual const Actor& Model() const
+  {
+    return *model_;
+  }
+  
+  virtual physx::PxActor& Instance() const
+  {
+    return *inst_;
+  }
+  
+  //! Signal connection for when an aspect of the regions timing/range/offset changes.
+  virtual boost::signals2::connection ConnectDidSleep(
+    const DidSleepSignal::slot_type& slot)
+  {
+    if (did_sleep_signal_.empty()) {
+      inst_->setActorFlags(
+          inst_->getActorFlags() | physx::PxActorFlag::eSEND_SLEEP_NOTIFIES);
+    }
+    
+    return did_sleep_signal_.connect(slot);
+  }
+  
+  virtual void HandleDidSleep()
+  {
+    did_sleep_signal_();
+  }
+  
+private:
+  const Actor* model_;
+  physx::PxRigidDynamic *inst_;
+  
+  DidSleepSignal did_sleep_signal_;
+};
+
+
+
+
+template <typename T>
+struct UniquePtrComparator {
+  bool operator() (const std::unique_ptr<T>& lhs, const std::unique_ptr<T>& rhs) const
+  {
+    return lhs < rhs;
+  }
+  
+  bool operator() (const std::unique_ptr<T>& lhs, const T* rhs) const
+  {
+    return lhs.get() < rhs;
+  }
+  
+  bool operator() (const T* lhs, const std::unique_ptr<T>& rhs) const
+  {
+    return lhs < rhs.get();
+  }
+};
+
+class PxSimulation : public Simulation, public physx::PxSimulationEventCallback {
 public:
   PxSimulation(physx::PxPhysics* physics, const physx::PxSceneDesc& scene_desc)
   : physics_(physics),
     scene_(physics_->createScene(scene_desc)),
     factory_(physics)
   {
+    scene_->setSimulationEventCallback(this);
+    
     physx::PxPvdSceneClient* pvd_client = scene_->getScenePvdClient();
     if (pvd_client) {
       pvd_client->setScenePvdFlag(physx::PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS, true);
@@ -130,40 +190,126 @@ public:
     return scene_;
   }
   
-  virtual void AddActor(std::shared_ptr<Actor> actor)
+  virtual ActorAgent* AddActor(const Actor& actor)
   {
+    std::unique_ptr<PxActorAgent> agent;
+    
     // Build the physx version of the actor
-    switch (actor->Type()) {
+    switch (actor.Type()) {
       case kRigidDynamic:
       {
-        RigidDynamic *subject = static_cast<RigidDynamic *>(actor.get());
-        physx::PxTransform transform = ConvertTransform(subject->Transform());
+        const RigidDynamic& subject = static_cast<const RigidDynamic&>(actor);
+        physx::PxTransform transform = ConvertTransform(subject.Transform());
         physx::PxRigidDynamic* body = physics_->createRigidDynamic(transform);
-        const auto& shapes = subject->Shapes();
+        
+        // Store relationship
+        physx::PxReal thresh = body->getSleepThreshold();
+        physx::PxReal wake_counter = body->getWakeCounter();
+        body->setSleepThreshold(0.000001);
+        body->setWakeCounter(1.0);
+        
+        // TODO: probably remove this now that I added agents
+        factory_.actors.insert(std::make_pair(&actor, body));
+        
+        const auto& shapes = subject.Shapes();
         for (auto it = shapes.begin(); it != shapes.end(); ++it) {
           physx::PxShape *shape = CreateShape(*(it->get()), subject);
           body->attachShape(*shape);
           shape->release();
         }
         physx::PxRigidBodyExt::updateMassAndInertia(*body, 737.0f);
-        scene_->addActor(*body);
-        //body->release();
+        
+        agent.reset(new PxRigidDynamicAgent(actor, body));
       }
+      break;
       default:
         // Can't create
-        return;
+        return nullptr;
     }
+    
+    assert(agent != nullptr);
+    
+    // Store pointer because we are about to move and unique_ptr won't be
+    // good anymore
+    
+    agent->Instance().userData = agent.get();
+    scene_->addActor(agent->Instance());
+    
+    ActorAgent *agent_ptr = agent.get();
+    
+    auto sorted_pos = std::upper_bound(
+      actors_.begin(),
+      actors_.end(),
+      agent.get(),
+      UniquePtrComparator<PxActorAgent>());
+    
+    actors_.insert(sorted_pos, std::move(agent));
+    actors_.push_back(std::move(agent));
+    return agent_ptr;
   }
   
-  virtual void RemoveActor(std::shared_ptr<Actor> actor)
+  virtual void RemoveActor(const ActorAgent& agent)
   {
-  
+    const PxActorAgent& px_agent = static_cast<const PxActorAgent&>(agent);
+    
+    auto it = std::lower_bound(
+      actors_.begin(),
+      actors_.end(),
+      &px_agent,
+      UniquePtrComparator<PxActorAgent>());
+    
+    if (it == actors_.end() || it->get() != &agent) {
+      return;
+    }
+    
+    actors_.erase(it);
   }
   
   virtual void Step(double time_step)
   {
     scene_->simulate(time_step);
     scene_->fetchResults(true);
+  }
+  
+  virtual void onConstraintBreak(physx::PxConstraintInfo *constraints, physx::PxU32 count)
+  {
+  
+  }
+  
+  virtual void onWake(physx::PxActor **actors, physx::PxU32 count)
+  {
+  
+  }
+  
+  virtual void onSleep(physx::PxActor **actors, physx::PxU32 count)
+  {
+    for (physx::PxU32 i = 0; i < count; ++i) {
+      physx::PxActor *actor = actors[i];
+      assert(actor->userData != nullptr);
+      PxActorAgent *agent = static_cast<PxActorAgent *>(actor->userData);
+      agent->HandleDidSleep();
+    }
+  }
+  
+  virtual void onContact(
+    const physx::PxContactPairHeader &pairHeader,
+    const physx::PxContactPair *pairs,
+    physx::PxU32 nbPairs)
+  {
+    std::cout << "contact" << std::endl;
+  }
+  
+  virtual void onTrigger(physx::PxTriggerPair *pairs, physx::PxU32 count)
+  {
+  
+  }
+  
+  virtual void onAdvance(
+    const physx::PxRigidBody *const *bodyBuffer,
+    const physx::PxTransform *poseBuffer,
+    const physx::PxU32 count)
+  {
+    
   }
   
 private:
@@ -177,7 +323,7 @@ private:
     return physx::PxTransform(physx::PxMat44(values));
   }
   
-  physx::PxShape* CreateShape(const Shape& shape, const Actor* handle)
+  physx::PxShape* CreateShape(const Shape& shape, const Actor& handle)
   {
     physx::PxShape *px_shape = nullptr;
     
@@ -214,6 +360,7 @@ private:
   physx::PxScene *scene_;
   PxFactory factory_;
   physx::PxMaterial *floor_material_;
+  std::vector<std::unique_ptr<PxActorAgent>> actors_;
 };
 
 class PxEngine : public PhysicsEngine {

@@ -5,6 +5,7 @@
 #include "hsim/Geometry.hpp"
 #include "hsim/Math.hpp"
 
+#include <boost/signals2.hpp>
 #include <memory>
 
 namespace hsim {
@@ -41,6 +42,18 @@ class Actor {
 public:
   virtual ~Actor() {}
   virtual ActorType Type() const = 0;
+};
+
+class ActorAgent {
+public:
+  typedef boost::signals2::signal<void ()> DidSleepSignal;
+  
+  virtual ~ActorAgent() {}
+  virtual const Actor& Model() const = 0;
+  
+  //! Signal connection for when an aspect of the regions timing/range/offset changes.
+  virtual boost::signals2::connection ConnectDidSleep(
+    const DidSleepSignal::slot_type& slot) = 0;
 };
 
 class RigidActor : public Actor {
@@ -263,8 +276,8 @@ private:
 class Simulation {
 public:
   virtual ~Simulation() {}
-  virtual void AddActor(std::shared_ptr<Actor> actor) = 0;
-  virtual void RemoveActor(std::shared_ptr<Actor> actor) = 0;
+  virtual ActorAgent* AddActor(const Actor& actor) = 0;
+  virtual void RemoveActor(const ActorAgent& actor_agent) = 0;
   virtual void Step(double time_step) = 0;
 };
 

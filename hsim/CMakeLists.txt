@@ -7,9 +7,11 @@ file(GLOB includes "include/hsim/*.hpp")
 add_library(hsim ${srcs} ${includes})
 
 target_include_directories(hsim PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include> 
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
+
+target_include_directories(hsim PUBLIC ${Boost_INCLUDE_DIRS})
 
 target_link_libraries(hsim
     PUBLIC
