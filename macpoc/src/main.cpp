@@ -12,7 +12,7 @@
 
 #include "hsim/PxEngine.hpp"
 
-#define RENDER_SNIPPET
+//#define RENDER_SNIPPET
 
 /*
 PxRigidDynamic* createDynamic(const PxTransform& t, const PxGeometry& geometry, const PxVec3& velocity=PxVec3(0))
@@ -62,9 +62,7 @@ void keyPress(unsigned char key, const PxTransform& camera)
 namespace
 {
 hsim::PxEngine *sEngine;
-hsim::Simulation *sSimulation;
-std::unique_ptr<hsim::Actor> sActor;
-hsim::ActorAgent *sActorAgent;
+std::unique_ptr<hsim::Iteration> sIteration;
 
 Snippets::Camera*  sCamera;
 
@@ -73,15 +71,16 @@ void motionCallback(int x, int y)
   sCamera->handleMotion(x, y);
 }
 
-void onSleepCallback(hsim::ActorAgent *agent)
-{
-  std::cout << "did sleep" << std::endl;
-}
+
 
 void keyboardCallback(unsigned char key, int x, int y)
 {
   if(key==27)
     exit(0);
+  
+  if (key == '\r') {
+    sIteration->Next();
+  }
 
   if(!sCamera->handleKey(key, x, y, 0.1))
     ;//keyPress(key, sCamera->getTransform());
@@ -100,7 +99,12 @@ void idleCallback()
 
 void renderCallback()
 {
-  sSimulation->Step(1.0f / 120.0f);
+ 
+  hsim::IterationStatus status = sIteration->Step();
+  if (status == hsim::IterationStatus::kFailed) {
+    sIteration->Next();
+  }
+  
   Snippets::startRender(sCamera->getEye(), sCamera->getDir());
 
   physx::PxScene* scene;
@@ -125,18 +129,11 @@ void exitCallback(void)
 
 void renderLoop()
 {
-  hsim::Project project;
   
-  std::unique_ptr<htree::Tree> tree = project.GenerateTree();
-  htree::StringNodeAttributes attributes = project.Attribute(*tree.get());
-  sActor = project.CreateActor(*tree.get(), attributes);
 
   sEngine = new hsim::PxEngine();
-  sSimulation = sEngine->InitSimulation();
-  sActorAgent = sSimulation->AddActor(*(sActor.get()));
-  assert(sActorAgent != nullptr);
-  
-  sActorAgent->ConnectDidSleep(std::bind(onSleepCallback, sActorAgent));
+  sIteration.reset(new hsim::Iteration(*sEngine));
+  sIteration->Next();
   
   
   sCamera = new Snippets::Camera(physx::PxVec3(2.0f, 2.0f, 2.0f), physx::PxVec3(-0.6f,-0.2f,-0.7f));
@@ -163,10 +160,23 @@ int main(int argc, char *argv[])
 #ifdef RENDER_SNIPPET
   renderLoop();
 #else
-  static const PxU32 frameCount = 100;
-  initPhysics(false);
-  for(PxU32 i=0; i<frameCount; i++)
-    stepPhysics(false);
-  cleanupPhysics(false);
+  int solutions = 0;
+  int attempts = 0;
+  auto engine = new hsim::PxEngine();
+  std::unique_ptr<hsim::Iteration> iteration(new hsim::Iteration(*engine));
+  iteration->Next();
+  while (solutions < 10) {
+    hsim::IterationStatus status = iteration->Step();
+    if (status == hsim::IterationStatus::kComplete) {
+      std::cout << "Found solution " << solutions << " for " << attempts << " attempts." << std::endl;
+      solutions++;
+      attempts++;
+      iteration->Next();
+    } else if (status == hsim::IterationStatus::kFailed) {
+      attempts++;
+      iteration->Next();
+    }
+  }
+  
 #endif
 }

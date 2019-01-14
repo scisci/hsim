@@ -79,7 +79,6 @@ public:
   {}
   
   PxLookup<Material, physx::PxMaterial> materials;
-  std::unordered_map<const Actor*, physx::PxActor *> actors;
 private:
   physx::PxPhysics *physics_;
 };
@@ -91,11 +90,29 @@ public:
   virtual void HandleDidSleep() = 0;
 };
 
+class PxTransformHandle : public TransformHandle {
+public:
+  PxTransformHandle(const physx::PxRigidActor& actor)
+  : actor_(&actor)
+  {}
+  
+  virtual Vector3 Up() const
+  {
+    physx::PxVec3 up = actor_->getGlobalPose().transform(physx::PxVec3(0, 1, 0));
+    return Vector3(up.x, up.y, up.z);
+  }
+  
+private:
+
+  const physx::PxRigidActor *actor_;
+};
+
 class PxRigidDynamicAgent : public PxActorAgent {
 public:
   PxRigidDynamicAgent(const Actor& model, physx::PxRigidDynamic *inst)
   : model_(&model),
-    inst_(inst)
+    inst_(inst),
+    transform_(*inst)
   {}
   
   virtual const Actor& Model() const
@@ -103,33 +120,60 @@ public:
     return *model_;
   }
   
+  virtual const TransformHandle& Transform() const
+  {
+    return transform_;
+  }
+  
   virtual physx::PxActor& Instance() const
   {
     return *inst_;
   }
   
-  //! Signal connection for when an aspect of the regions timing/range/offset changes.
+  virtual void AddImpulseAtLocalPos(const Vector3& force, const Vector3& pos)
+  {
+    physx::PxRigidBodyExt::addForceAtLocalPos(
+      *inst_,
+      physx::PxVec3(force.x(), force.y(), force.z()),
+      physx::PxVec3(pos.x(), pos.y(), pos.z()),
+      physx::PxForceMode::eIMPULSE);
+  }
+  
+  
   virtual boost::signals2::connection ConnectDidSleep(
     const DidSleepSignal::slot_type& slot)
   {
-    if (did_sleep_signal_.empty()) {
+    if (sleep_signal_.empty()) {
       inst_->setActorFlags(
           inst_->getActorFlags() | physx::PxActorFlag::eSEND_SLEEP_NOTIFIES);
     }
     
-    return did_sleep_signal_.connect(slot);
+    return sleep_signal_.connect(slot);
+  }
+  
+  virtual boost::signals2::connection ConnectDidAdvance(
+    const DidAdvanceSignal::slot_type& slot)
+  {
+    return advance_signal_.connect(slot);
   }
   
   virtual void HandleDidSleep()
   {
-    did_sleep_signal_();
+    sleep_signal_();
+  }
+  
+  virtual void HandleDidAdvance()
+  {
+    advance_signal_();
   }
   
 private:
   const Actor* model_;
   physx::PxRigidDynamic *inst_;
+  PxTransformHandle transform_;
   
-  DidSleepSignal did_sleep_signal_;
+  DidSleepSignal sleep_signal_;
+  DidAdvanceSignal advance_signal_;
 };
 
 
@@ -151,6 +195,10 @@ struct UniquePtrComparator {
   {
     return lhs < rhs.get();
   }
+};
+
+enum PxSimulationEventFlag {
+  kSleep = 1
 };
 
 class PxSimulation : public Simulation, public physx::PxSimulationEventCallback {
@@ -205,12 +253,12 @@ public:
         // Store relationship
         physx::PxReal thresh = body->getSleepThreshold();
         physx::PxReal wake_counter = body->getWakeCounter();
-        body->setSleepThreshold(0.000001);
+        body->setSleepThreshold(0.0001);
         body->setWakeCounter(1.0);
+        physx::PxReal damp = body->getAngularDamping();
+        body->setAngularDamping(0.005);
         
-        // TODO: probably remove this now that I added agents
-        factory_.actors.insert(std::make_pair(&actor, body));
-        
+
         const auto& shapes = subject.Shapes();
         for (auto it = shapes.begin(); it != shapes.end(); ++it) {
           physx::PxShape *shape = CreateShape(*(it->get()), subject);
@@ -218,7 +266,7 @@ public:
           shape->release();
         }
         physx::PxRigidBodyExt::updateMassAndInertia(*body, 737.0f);
-        
+
         agent.reset(new PxRigidDynamicAgent(actor, body));
       }
       break;
@@ -244,7 +292,6 @@ public:
       UniquePtrComparator<PxActorAgent>());
     
     actors_.insert(sorted_pos, std::move(agent));
-    actors_.push_back(std::move(agent));
     return agent_ptr;
   }
   
@@ -262,13 +309,22 @@ public:
       return;
     }
     
+    scene_->removeActor(it->get()->Instance());
+    factory_.materials.RemoveActor(it->get()->Model());
+    it->get()->Instance().release();
     actors_.erase(it);
+    
+    
   }
   
   virtual void Step(double time_step)
   {
+    event_flags_ = 0;
     scene_->simulate(time_step);
     scene_->fetchResults(true);
+    if (event_flags_) {
+      DispatchEvents();
+    }
   }
   
   virtual void onConstraintBreak(physx::PxConstraintInfo *constraints, physx::PxU32 count)
@@ -283,12 +339,9 @@ public:
   
   virtual void onSleep(physx::PxActor **actors, physx::PxU32 count)
   {
-    for (physx::PxU32 i = 0; i < count; ++i) {
-      physx::PxActor *actor = actors[i];
-      assert(actor->userData != nullptr);
-      PxActorAgent *agent = static_cast<PxActorAgent *>(actor->userData);
-      agent->HandleDidSleep();
-    }
+    event_flags_ |= PxSimulationEventFlag::kSleep;
+    sleep_buffer_.resize(count);
+    std::copy(actors, actors + count, sleep_buffer_.begin());
   }
   
   virtual void onContact(
@@ -313,6 +366,18 @@ public:
   }
   
 private:
+  void DispatchEvents()
+  {
+    if (event_flags_ & PxSimulationEventFlag::kSleep) {
+      for (auto it = sleep_buffer_.begin(); it != sleep_buffer_.end(); ++it) {
+        physx::PxActor *actor = *it;
+        assert(actor->userData != nullptr);
+        PxActorAgent *agent = static_cast<PxActorAgent *>(actor->userData);
+        agent->HandleDidSleep();
+      }
+      sleep_buffer_.clear();
+    }
+  }
   physx::PxTransform ConvertTransform(const hsim::Transform& transform)
   {
     float values[16];
@@ -360,6 +425,10 @@ private:
   physx::PxScene *scene_;
   PxFactory factory_;
   physx::PxMaterial *floor_material_;
+  
+  int event_flags_;
+  std::vector<physx::PxActor *> sleep_buffer_;
+  
   std::vector<std::unique_ptr<PxActorAgent>> actors_;
 };
 
@@ -395,26 +464,16 @@ public:
     foundation_->release();
   }
   
-  virtual Simulation* InitSimulation()
+  virtual std::unique_ptr<Simulation> CreateSimulation()
   {
     physx::PxSceneDesc scene_desc(physics_->getTolerancesScale());
     scene_desc.gravity = physx::PxVec3(0.0f, -9.81f, 0.0f);
     scene_desc.cpuDispatcher = dispatcher_;
     scene_desc.filterShader = physx::PxDefaultSimulationFilterShader;
     
-    simulations_.push_back(std::unique_ptr<PxSimulation>(new PxSimulation(physics_, scene_desc)));
-    return simulations_.back().get();
+    return std::unique_ptr<PxSimulation>(new PxSimulation(physics_, scene_desc));
   }
   
-  virtual void DisposeSimulation(Simulation *simulation)
-  {
-    for (auto it = simulations_.begin(); it != simulations_.end(); ++it) {
-      if (it->get() == simulation) {
-        simulations_.erase(it);
-        return;
-      }
-    }
-  }
 
 private:
   physx::PxDefaultAllocator allocator_;
@@ -424,8 +483,6 @@ private:
   physx::PxDefaultCpuDispatcher *dispatcher_;
   physx::PxPvdTransport *transport_;
   physx::PxPvd *pvd_;
-
-  std::vector<std::unique_ptr<PxSimulation>> simulations_;
 };
 
 } // namespace hsim

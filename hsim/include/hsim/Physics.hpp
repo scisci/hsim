@@ -44,16 +44,31 @@ public:
   virtual ActorType Type() const = 0;
 };
 
+class TransformHandle {
+public:
+  virtual ~TransformHandle() {}
+  virtual Vector3 Up() const = 0;
+  Real Tilt() const
+  {
+    return acos(Up().dot(Vector3(0, 1, 0)));
+  }
+};
+
 class ActorAgent {
 public:
   typedef boost::signals2::signal<void ()> DidSleepSignal;
+  typedef boost::signals2::signal<void ()> DidAdvanceSignal;
   
   virtual ~ActorAgent() {}
   virtual const Actor& Model() const = 0;
+  virtual const TransformHandle& Transform() const = 0;
   
-  //! Signal connection for when an aspect of the regions timing/range/offset changes.
+  virtual void AddImpulseAtLocalPos(const Vector3& force, const Vector3& pos) = 0;
+  
   virtual boost::signals2::connection ConnectDidSleep(
     const DidSleepSignal::slot_type& slot) = 0;
+  virtual boost::signals2::connection ConnectDidAdvance(
+    const DidAdvanceSignal::slot_type& slot) = 0;
 };
 
 class RigidActor : public Actor {
@@ -273,6 +288,8 @@ private:
   std::vector<ShapeProps> shapes_;
 };
 
+
+
 class Simulation {
 public:
   virtual ~Simulation() {}
@@ -284,8 +301,7 @@ public:
 class PhysicsEngine {
 public:
   virtual ~PhysicsEngine() {}
-  virtual Simulation* InitSimulation() = 0;
-  virtual void DisposeSimulation(Simulation *simulation) = 0;
+  virtual std::unique_ptr<Simulation> CreateSimulation() = 0;
 };
 
 } // namespace hsim
