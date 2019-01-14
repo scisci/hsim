@@ -13,8 +13,8 @@ std::unique_ptr<htree::Tree> Project::GenerateTree()
 {
   std::uniform_int_distribution<int64_t> seed_dist(0, std::numeric_limits<int64_t>::max());
   htree::RatioSourcePtr ratio_source(new htree::golden::GoldenRatioSource());
-  double container_ratio_xy = 0.25;
-  double container_ratio_zy = 0.25;
+  double container_ratio_xy = 1.0;
+  double container_ratio_zy = 1.0;
   
   int num_leaves = std::uniform_int_distribution<>(200, 400)(rng);
 

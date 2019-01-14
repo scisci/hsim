@@ -254,7 +254,7 @@ public:
         physx::PxReal thresh = body->getSleepThreshold();
         physx::PxReal wake_counter = body->getWakeCounter();
         body->setSleepThreshold(0.0001);
-        body->setWakeCounter(1.0);
+        body->setWakeCounter(0.4);
         physx::PxReal damp = body->getAngularDamping();
         body->setAngularDamping(0.005);
         
@@ -445,7 +445,7 @@ public:
     transport_ = physx::PxDefaultPvdSocketTransportCreate(PVD_HOST, 5425, 10);
     pvd_->connect(*transport_,physx::PxPvdInstrumentationFlag::eALL);
     physics_ = PxCreatePhysics(PX_PHYSICS_VERSION, *foundation_, physx::PxTolerancesScale(),true,pvd_);
-    dispatcher_ = physx::PxDefaultCpuDispatcherCreate(2);
+    dispatcher_ = physx::PxDefaultCpuDispatcherCreate(4);
     
     
 

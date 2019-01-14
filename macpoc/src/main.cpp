@@ -12,7 +12,7 @@
 
 #include "hsim/PxEngine.hpp"
 
-//#define RENDER_SNIPPET
+#define RENDER_SNIPPET
 
 /*
 PxRigidDynamic* createDynamic(const PxTransform& t, const PxGeometry& geometry, const PxVec3& velocity=PxVec3(0))
