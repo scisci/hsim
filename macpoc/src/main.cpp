@@ -81,6 +81,10 @@ void keyboardCallback(unsigned char key, int x, int y)
   if (key == '\r') {
     sIteration->Next();
   }
+  
+  if (key == 'r') {
+    sIteration->Retry();
+  }
 
   if(!sCamera->handleKey(key, x, y, 0.1))
     ;//keyPress(key, sCamera->getTransform());

@@ -98,8 +98,17 @@ public:
   
   virtual Vector3 Up() const
   {
-    physx::PxVec3 up = actor_->getGlobalPose().transform(physx::PxVec3(0, 1, 0));
+    physx::PxVec3 up = actor_->getGlobalPose().rotate(physx::PxVec3(0, 1, 0));
     return Vector3(up.x, up.y, up.z);
+  }
+  
+  virtual Real Tilt() const {
+    physx::PxVec3 y_axis(0, 1, 0);
+    physx::PxVec3 up = actor_->getGlobalPose().rotate(y_axis);
+    // It is necessary to normalize here since float precision errors,
+    // otherwise it falls outside the acos domain.
+    const physx::PxReal cos_theta = up.dot(y_axis) / up.magnitude();
+    return acos(cos_theta);
   }
   
 private:

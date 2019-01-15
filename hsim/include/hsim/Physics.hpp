@@ -48,10 +48,8 @@ class TransformHandle {
 public:
   virtual ~TransformHandle() {}
   virtual Vector3 Up() const = 0;
-  Real Tilt() const
-  {
-    return acos(Up().dot(Vector3(0, 1, 0)));
-  }
+  virtual Real Tilt() const = 0;
+  
 };
 
 class ActorAgent {
@@ -198,7 +196,7 @@ public:
   
   void AddShape(std::unique_ptr<hsim::Geometry> geometry, Real density, const Transform& transform)
   {
-    Real volume = geometry->Volume();
+    Real volume = MassProperties::ComputeVolume(*geometry.get());
     
     shapes_.push_back({
       .geometry = std::move(geometry),
@@ -234,7 +232,7 @@ public:
     total_com /= total_mass;
     
     for (auto& shape : shapes_) {
-      Matrix3 inertia = shape.geometry->ComputeInertia(shape.mass);
+      Matrix3 inertia = MassProperties::ComputeInertia(*shape.geometry.get(), shape.mass);
       Vector3 offset = shape.center_of_mass - total_com;
       total_inertia += ParallelAxisTheorem(inertia, offset, shape.mass);
     }

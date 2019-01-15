@@ -57,50 +57,60 @@ class Iteration {
 public:
   Iteration(PhysicsEngine& engine)
   : simulation_(engine.CreateSimulation()),
-    state_(0)
+    state_(0),
+    agent_(nullptr)
   {
   
   }
   
-  void Next()
+  void Retry()
   {
-    // Remove everything from the scene
-    for (auto it = agents_.begin(); it != agents_.end(); ++it) {
-      simulation_->RemoveActor(**it);
+    Clear();
+    Load();
+  }
+  
+  void Clear()
+  {
+    if (agent_ == nullptr) {
+      return;
     }
     
+    simulation_->RemoveActor(*agent_);
+
     for (auto& conn : conns_) {
       conn.disconnect();
     }
     conns_.clear();
-    agents_.clear();
-    actors_.clear();
+    agent_ = nullptr;
     state_ = 0;
+  }
+  
+  void Next()
+  {
+    Clear();
     
     hsim::Project project;
     std::unique_ptr<htree::Tree> tree = project.GenerateTree();
     htree::StringNodeAttributes attributes = project.Attribute(*tree.get());
-    std::unique_ptr<Actor> actor = project.CreateActor(*tree.get(), attributes);
-    ActorAgent *agent = simulation_->AddActor(*(actor.get()));
+    actor_ = project.CreateActor(*tree.get(), attributes);
     
-    // Add an initial nudge
+    Load();
+  }
+  
+  void Load()
+  {
+    agent_ = simulation_->AddActor(*(actor_.get()));
 
-    //agent->AddImpulseAtLocalPos(Vector3(20, 0, 0), Vector3(0, 2.0, 0));
-    
-    // Listen for the agent
     conns_.push_back(
-      agent->ConnectDidSleep(
-        std::bind(&Iteration::HandleSleepCallback, this, agent)));
-    
-    actors_.push_back(std::move(actor));
-    agents_.push_back(agent);
+      agent_->ConnectDidSleep(
+        std::bind(&Iteration::HandleSleepCallback, this, agent_)));
   }
   
   
   void HandleSleepCallback(hsim::ActorAgent *agent)
   {
     hsim::Real tilt = agent->Transform().Tilt();
-    
+    std::cout << "Tilt " << (tilt * 180.0 / M_PI) << std::endl;
     // If tilt is greater than 10 degreees then it fails
     if (tilt > 10.0 * M_PI / 180.0) {
       std::cout << "Fell over" << std::endl;
@@ -108,8 +118,10 @@ public:
     } else {
       std::cout << "Upright" << std::endl;
       if (++state_ == 1) {
+        std::cout << "Push right" << std::endl;
         agent->AddImpulseAtLocalPos(Vector3(50, 0, 0), Vector3(0, 2.0, 0));
       } else if (state_ == 2) {
+        std::cout << "Push back" << std::endl;
         agent->AddImpulseAtLocalPos(Vector3(0, 0, 50), Vector3(0, 2.0, 0));
       }
     }
@@ -128,8 +140,8 @@ public:
   
 private:
   std::unique_ptr<Simulation> simulation_;
-  std::vector<std::unique_ptr<Actor>> actors_;
-  std::vector<ActorAgent *> agents_;
+  std::unique_ptr<Actor> actor_;
+  ActorAgent *agent_;
   int state_;
   std::vector<boost::signals2::connection> conns_;
 };
