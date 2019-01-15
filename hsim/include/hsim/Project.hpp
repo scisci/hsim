@@ -9,6 +9,9 @@
 #include "htree/RegionIterator.hpp"
 #include "htree/EdgePathAttributer.hpp"
 
+#include "hsim/Tess.hpp";
+
+
 #include <memory>
 #include <iostream>
 
@@ -136,6 +139,46 @@ public:
     }
     
     return state_ == 3 ? kComplete : kIncomplete;
+  }
+  
+  void Write()
+  {
+    // Take our actor and tesselate and write it
+    if (actor_ == nullptr) {
+      return;
+    }
+    
+    if (actor_->Type() != kRigidDynamic && actor_->Type() != kRigidStatic) {
+      return;
+    }
+    
+    const RigidActor& rigid_actor = static_cast<const RigidActor&>(*actor_.get());
+    
+    TesselationBuilder builder;
+    
+    for (const auto& shape : rigid_actor.Shapes()) {
+      const Geometry& geometry = shape->Geometry();
+      switch (geometry.Type()) {
+        case kBox:
+          builder.Add(static_cast<const Box&>(geometry), shape->Transform());
+          break;
+        default:
+          // Only boxes work for now
+          assert(0);
+      }
+    }
+    
+    StlwFormatWriter writer;
+    
+    // 2m -> 12cm
+    double scale = 12.0 / 200.0 * 1000.0; // Meters -> mm
+    AffineTransform transform = AffineTransform::Identity();
+    // Since we want z-axis up
+    Eigen::AngleAxis<Real> axis_swap(0.5 * M_PI, Vector3::UnitX());
+    transform.rotate(axis_swap);
+    transform.scale(scale);
+    writer.SetTransform(transform);
+    writer.Write(builder.Tesselation(), std::cout);
   }
   
 private:

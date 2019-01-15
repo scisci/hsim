@@ -12,6 +12,7 @@
 
 #include "hsim/PxEngine.hpp"
 
+
 #define RENDER_SNIPPET
 
 /*
@@ -84,6 +85,11 @@ void keyboardCallback(unsigned char key, int x, int y)
   
   if (key == 'r') {
     sIteration->Retry();
+  }
+  
+  if (key == 'w') {
+    // Write
+    sIteration->Write();
   }
 
   if(!sCamera->handleKey(key, x, y, 0.1))

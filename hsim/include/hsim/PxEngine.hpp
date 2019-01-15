@@ -103,8 +103,8 @@ public:
   }
   
   virtual Real Tilt() const {
-    physx::PxVec3 y_axis(0, 1, 0);
-    physx::PxVec3 up = actor_->getGlobalPose().rotate(y_axis);
+    const physx::PxVec3 y_axis(0, 1, 0);
+    const physx::PxVec3 up = actor_->getGlobalPose().rotate(y_axis);
     // It is necessary to normalize here since float precision errors,
     // otherwise it falls outside the acos domain.
     const physx::PxReal cos_theta = up.dot(y_axis) / up.magnitude();
