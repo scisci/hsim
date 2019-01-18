@@ -226,7 +226,7 @@ void renderLoop()
   sIteration->Next();
   
   
-  sCamera = new Snippets::Camera(physx::PxVec3(0.0f, 2.0f, 2.0f), physx::PxVec3(0.0f, 0.0f, -1.0f));
+  sCamera = new Snippets::Camera(physx::PxVec3(2.0f, 2.0f, 2.0f), physx::PxVec3(-1.0f, -1.0f, -1.0f));
 
   Snippets::setupDefaultWindow("PhysX Snippet HelloWorld");
   Snippets::setupDefaultRenderState();

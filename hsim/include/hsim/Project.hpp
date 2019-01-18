@@ -87,6 +87,7 @@ public:
     conns_.clear();
     agent_ = nullptr;
     state_ = 0;
+    sim_time_ = 0;
   }
   
   void Next()
@@ -120,13 +121,17 @@ public:
       std::cout << "Fell over" << std::endl;
       state_ = 4;
     } else {
+      RigidDynamic *rigid_actor = static_cast<RigidDynamic *>(actor_.get());
+      
       std::cout << "Upright" << std::endl;
       if (++state_ == 1) {
-        std::cout << "Push right" << std::endl;
-        agent->AddImpulseAtLocalPos(Vector3(50, 0, 0), Vector3(0, 2.0, 0));
+        hsim::Real mass = rigid_actor->Mass();
+        std::cout << "Push right against " << mass << std::endl;
+        agent->AddImpulseAtLocalPos(Vector3(mass * 0.2, 0, 0), Vector3(0, 2.0, 0));
       } else if (state_ == 2) {
-        std::cout << "Push back" << std::endl;
-        agent->AddImpulseAtLocalPos(Vector3(0, 0, 50), Vector3(0, 2.0, 0));
+        hsim::Real mass = rigid_actor->Mass();
+        std::cout << "Push back against " << rigid_actor->Mass() << std::endl;
+        agent->AddImpulseAtLocalPos(Vector3(0, 0, mass * 0.2), Vector3(0, 2.0, 0));
       } else {
         // Done
       }
@@ -159,7 +164,9 @@ public:
       case 3:
         return kComplete;
       default:
-        
+        if (sim_time_ >= 5.0) {
+          return kFailed;
+        }
         return kIncomplete;
     }
   }
