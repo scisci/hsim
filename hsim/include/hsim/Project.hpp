@@ -9,7 +9,7 @@
 #include "htree/RegionIterator.hpp"
 #include "htree/EdgePathAttributer.hpp"
 
-#include "hsim/Tess.hpp";
+#include "hsim/Tess.hpp"
 
 
 #include <memory>
@@ -60,9 +60,9 @@ class Iteration {
 public:
   Iteration(PhysicsEngine& engine)
   : simulation_(engine.CreateSimulation()),
+    agent_(nullptr),
     state_(0),
-    sim_time_(0.0),
-    agent_(nullptr)
+    sim_time_(0.0)
   {
   
   }

@@ -9,6 +9,7 @@
 #include "htree/Golden.hpp"
 #include "hsim/Physics.hpp"
 #include "hsim/Project.hpp"
+#include "hsim/Math.hpp"
 
 #include "hsim/PxEngine.hpp"
 
@@ -94,33 +95,10 @@ void keyboardCallback(unsigned char key, int x, int y)
   
 }
 
-hsim::Matrix4 frust(
-  hsim::Real left, hsim::Real right, hsim::Real bottom, hsim::Real top, hsim::Real znear, hsim::Real zfar)
-{
-    hsim::Real temp, temp2, temp3, temp4;
-    temp = 2.0 * znear;
-    temp2 = right - left;
-    temp3 = top - bottom;
-    temp4 = zfar - znear;
-    hsim::Matrix4 mat;
-    mat <<
-      hsim::Vector4(temp / temp2, 0.0, 0.0, 0.0),
-      hsim::Vector4(0.0, temp / temp3, 0.0, 0.0),
-      hsim::Vector4((right + left) / temp2, (top + bottom) / temp3, (-zfar - znear) / temp4, -1.0),
-      hsim::Vector4(0.0, 0.0, (-temp * zfar) / temp4, 0.0);
-  
-    return mat;
-}
 
-hsim::Matrix4 persp(
-  hsim::Real fov_deg, hsim::Real aspect, hsim::Real znear, hsim::Real zfar)
-{
-  hsim::Real ymax, xmax;
-  ymax = znear * tanf(fov_deg * M_PI / 360.0);
-  xmax = ymax * aspect;
-  return frust(-xmax, xmax, -ymax, ymax, znear, zfar);
-  
-}
+
+
+
 
 physx::PxMat44 ConvertTransform(const hsim::Matrix4& matrix)
   {
@@ -131,27 +109,6 @@ physx::PxMat44 ConvertTransform(const hsim::Matrix4& matrix)
     return physx::PxMat44(values);
   }
 
-hsim::Matrix4 CalcViewMatrix(hsim::Vector3 eye, hsim::Vector3 dir)
-{
-  hsim::Vector3 z_axis = dir.normalized();
-  hsim::Vector3 x_axis = z_axis.cross(hsim::Vector3(0, 1, 0)).normalized();
-  hsim::Vector3 y_axis = x_axis.cross(z_axis).normalized();
-
-  hsim::Matrix4 orientation;
-  orientation <<
-    hsim::Vector4(x_axis.x(), y_axis.x(), -z_axis.x(), 0.0),
-    hsim::Vector4(x_axis.y(), y_axis.y(), -z_axis.y(), 0.0),
-    hsim::Vector4(x_axis.z(), y_axis.z(), -z_axis.z(), 0.0),
-    hsim::Vector4(0, 0, 0, 1);
-  
-  hsim::Matrix4 trans = hsim::Matrix4::Identity();
-  trans(12) = -eye.x();
-  trans(13) = -eye.y();
-  trans(14) = -eye.z();
-  
-  return orientation * trans;
-
-}
 
 template<class T>
 Eigen::Matrix<T,4,4> perspective
@@ -188,37 +145,6 @@ void print_mat4(const hsim::Matrix4 mat)
     mat(3, 0) << " " << mat(3, 1) << " " << mat(3, 2) << " " << mat(3, 3) << std::endl;
 }
 
-template<class T>
-Eigen::Matrix<T,4,4> lookAt
-(
-    Eigen::Matrix<T,3,1> const & eye,
-    Eigen::Matrix<T,3,1> const & center,
-    Eigen::Matrix<T,3,1> const & up
-)
-{
-    typedef Eigen::Matrix<T,4,4> Matrix4;
-    typedef Eigen::Matrix<T,3,1> Vector3;
-    
-
-    Vector3 f = (center - eye).normalized();
-    Vector3 u = up.normalized();
-    Vector3 s = f.cross(u).normalized();
-    u = s.cross(f);
-
-    Matrix4 res;
-    res <<  s.x(),s.y(),s.z(),0,//-s.dot(eye),
-            u.x(),u.y(),u.z(),0,//-u.dot(eye),
-            -f.x(),-f.y(),-f.z(),0,//f.dot(eye),
-            0,0,0,1;
-  
-    Matrix4 o;
-    o <<  0, 0, 0, 0,//-s.dot(eye),
-          0, 1, 0, 0,//-u.dot(eye),
-          0, 0, 1, 0,//f.dot(eye),
-          0, 0, 0 , 1;
-
-    return o * res;
-}
 
 void mouseCallback(int button, int state, int x, int y)
 {
@@ -235,54 +161,18 @@ void mouseCallback(int button, int state, int x, int y)
   
 
 
-  hsim::Matrix4 view_matrix = CalcViewMatrix(hsim::Vector3(eye.x, eye.y, eye.z), hsim::Vector3(dir.x, dir.y, dir.z));
-  hsim::Matrix4 projection_matrix = persp(fovy, width / height, znear, zfar);
-  hsim::Matrix4 window_matrix =
-    (Eigen::Scaling(0.5 * width, 0.5 *height, 0.5) *
-    Eigen::Translation<hsim::Real, 3>(1.0, 1.0, 1.0)).matrix();
-  //hsim::Matrix4 temp;
-  //temp.matrix() = window_matrix.matrix();
-  //print_mat4(temp);
-
- // hsim::Vector4 test_point = view_matrix.inverse() * hsim::Vector4(0.0, 0.0, -10.0, 1.0);
+  hsim::Matrix4 view_matrix = hsim::CalcViewMatrix(
+    hsim::Vector3(eye.x, eye.y, eye.z),
+    hsim::Vector3(targ.x, targ.y, targ.z));
+  hsim::Matrix4 proj_matrix = hsim::CalcPerspectiveProjection(
+    fovy, width / height, znear, zfar);
   
-  hsim::Matrix4 mvpw = (projection_matrix * view_matrix).inverse();//(window_matrix * projection_matrix * view_matrix);
-  physx::PxMat44 pxproj = ConvertTransform(projection_matrix);
-  physx::PxMat44 pxview = ConvertTransform(view_matrix);
-  physx::PxMat44  pxmvpw(physx::PxTransform(pxproj * pxview).getInverse());
+  hsim::Ray ray = hsim::CastRayFor2DCoords(
+    x, y, width, height, proj_matrix, view_matrix);
 
   
-  hsim::Vector4 start = hsim::Vector4(
-    (2.0 * x) / width - 1,
-    1.0 - (2.0 * y) / height,
-    -1.0, 1.0);
-  
-  
-      hsim::Real dist = -1.0 + 20.0 * (2.0 / (zfar - znear));
-  
-  hsim::Vector4 end = hsim::Vector4(
-    (2.0 * x) / width - 1,
-    1.0 - (2.0 * y) / height,
-    1.0, 1.0);
-  /*
-  hsim::Vector4 ray_clip = hsim::Vector4(ray_device.x(), ray_device.y(), -1.0, 1.0);
-  hsim::Vector4 ray_eye = projection_matrix.inverse() * ray_clip;
-  ray_eye.z() = -1.0;
-  ray_eye.w() = 0.0;
-  ray_eye = view_matrix.inverse() * ray_eye;
-  */
-  hsim::Vector4 ray_start = mvpw * start;
-  
-  hsim::Vector4 ray_end = mvpw * end;
-  ray_start /= ray_start.w();
-  ray_end /= ray_end.w();
-  
-  hsim::Vector4 pos = ray_start + (ray_end - ray_start).normalized() * 20.0;
-  std::cout << "ray goes from " <<
-    ray_start.x() << ", " << ray_start.y() << ", " << ray_start.z() << " to \n" <<
-    ray_end.x() << ", " << ray_end.y() << ", " << ray_end.z() << std::endl;
-  std::cout << " click " << x << ", " << y << " near ( " << pos.x() << ", " << pos.y() << ", " << pos.z() << " )" << std::endl;
-  sIteration->AddMouseTest(hsim::Vector3(pos.x(), pos.y(), pos.z()));
+  hsim::Vector3 pos = ray.PointAtDistance(20.0);
+  sIteration->AddMouseTest(pos);
 
 }
 

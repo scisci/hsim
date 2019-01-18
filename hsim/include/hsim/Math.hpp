@@ -18,6 +18,54 @@ typedef Eigen::Transform<Real, 3, Eigen::Isometry> Transform;
 typedef Eigen::Transform<Real, 3, Eigen::Affine> AffineTransform;
 typedef Eigen::Transform<Real, 3, Eigen::Projective> ProjectionTransform;
 
+struct Ray {
+  Ray(const Vector3& start, const Vector3& end)
+  : start(start),
+    end(end)
+  {}
+  
+  Ray(const Vector4& start, const Vector4& end)
+  : start(start.x(), start.y(), start.z()),
+    end(end.x(), end.y(), end.z())
+  {}
+  
+  Vector3 PointAtDistance(Real dist)
+  {
+    return start + (end - start).normalized() * dist;
+  }
+  
+  Vector3 start;
+  Vector3 end;
+};
+
+Matrix4 CalcXYWHProjection(
+  Real x,
+  Real y,
+  Real width,
+  Real height,
+  Real znear,
+  Real zfar);
+
+Matrix4 CalcPerspectiveProjection(Real fovy, Real aspect, Real near, Real far);
+Matrix4 CalcViewMatrix(const Vector3& eye, const Vector3& at);
+
+Vector4 NormalizeDeviceCoords(
+  Real x,
+  Real y,
+  Real z,
+  Real width,
+  Real height);
+  
+Ray CastRayFor2DCoords(
+  Real x,
+  Real y,
+  Real width,
+  Real height,
+  const Matrix4& projection_matrix,
+  const Matrix4& view_matrix,
+  Real start=-1.0,
+  Real end=1.0);
+
 } // namespace hsim
 
 #endif // HSIM_MATH_HPP
