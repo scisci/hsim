@@ -16,11 +16,10 @@ add_subdirectory(${PHYSX_ROOT_DIR}/source/compiler/cmake ${CMAKE_CURRENT_BINARY_
 FIND_PACKAGE(OpenGL REQUIRED)
 FIND_PACKAGE(GLUT REQUIRED)
 
-
-file(GLOB srcs "src/*.cpp" "src/*.hpp")
+file(GLOB srcs "src/*.cpp" "src/*.mm" "src/*.hpp")
 
 link_directories(/usr/local/lib)
 
 add_executable(${PROJECT_NAME} ${srcs})
 
-target_link_libraries(${PROJECT_NAME} PhysX PhysXExtensions ${OPENGL_LIBRARIES} ${GLUT_LIBRARY} hsim)
+target_link_libraries(${PROJECT_NAME} PhysX PhysXExtensions ${OPENGL_LIBRARIES} ${GLUT_LIBRARY} hsim MacSandboxUtilities)

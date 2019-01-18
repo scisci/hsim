@@ -8,3 +8,6 @@
 [submodule "extern/htreecpp"]
 	path = extern/htreecpp
 	url = ../htreecpp
+[submodule "extern/MacSandboxUtilities"]
+	path = extern/MacSandboxUtilities
+	url = ../MacSandboxUtilities

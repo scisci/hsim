@@ -61,6 +61,7 @@ public:
   Iteration(PhysicsEngine& engine)
   : simulation_(engine.CreateSimulation()),
     state_(0),
+    sim_time_(0.0),
     agent_(nullptr)
   {
   
@@ -126,19 +127,41 @@ public:
       } else if (state_ == 2) {
         std::cout << "Push back" << std::endl;
         agent->AddImpulseAtLocalPos(Vector3(0, 0, 50), Vector3(0, 2.0, 0));
+      } else {
+        // Done
       }
     }
     
   }
   
+  void AddMouseTest(const Vector3& pos)
+  {
+    RigidBodyBuilder builder;
+    Transform transform = Transform::Identity();
+    transform.translation() = pos;
+    builder.SetTransform(transform);
+    builder.AddShape(std::unique_ptr<Box>(new Box(1.0, 1.0, 1.0)), 1000.0, Transform::Identity());
+    
+    auto result = builder.Build();
+    
+    simulation_->AddActor(*result.get());
+  }
+  
   IterationStatus Step()
   {
-    simulation_->Step(1.0 / 60.0);
-    if (state_ == 4) {
-      return kFailed;
-    }
+    float dt = 1.0f / 60.0f;
+    sim_time_ += dt;
+    simulation_->Step(dt);
     
-    return state_ == 3 ? kComplete : kIncomplete;
+    switch (state_) {
+      case 4:
+        return kFailed;
+      case 3:
+        return kComplete;
+      default:
+        
+        return kIncomplete;
+    }
   }
   
   void Write()
@@ -168,7 +191,7 @@ public:
       }
     }
     
-    StlwFormatWriter writer;
+    StlFormatWriter writer;
     
     // 2m -> 12cm
     double scale = 12.0 / 200.0 * 1000.0; // Meters -> mm
@@ -186,6 +209,7 @@ private:
   std::unique_ptr<Actor> actor_;
   ActorAgent *agent_;
   int state_;
+  float sim_time_;
   std::vector<boost::signals2::connection> conns_;
 };
 

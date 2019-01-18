@@ -4,6 +4,12 @@ project(hsimall)
 #enable_testing()
 set(BUILD_TESTS_DEFAULT OFF) # Turn off htree tests
 
+
+# MacOS sandbox utilties, only need this for macos but eh
+# This is above c++ compile options since it is objective c
+add_subdirectory(extern/MacSandboxUtilities)
+include_directories($<TARGET_PROPERTY:MacSandboxUtilities,INTERFACE_INCLUDE_DIRECTORIES>)
+
 add_compile_options(-std=c++11)
 
 
@@ -24,5 +30,6 @@ include_directories($<TARGET_PROPERTY:htree,INTERFACE_INCLUDE_DIRECTORIES>)
 
 add_subdirectory(hsim)
 include_directories($<TARGET_PROPERTY:hsim,INTERFACE_INCLUDE_DIRECTORIES>)
+
 
 add_subdirectory(macpoc)
