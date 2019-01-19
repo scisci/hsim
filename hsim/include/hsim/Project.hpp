@@ -64,7 +64,8 @@ public:
     state_(0),
     sim_time_(0.0)
   {
-  
+    character_ = simulation_->AddCharacter(0.1, 0.5);
+    character_->SetPosition(Vector3(-10.0, 0.0, 0.0));
   }
   
   void Retry()
@@ -158,6 +159,8 @@ public:
     sim_time_ += dt;
     simulation_->Step(dt);
     
+    character_->Move(Vector3(0.005, -9.8f / 60.0f, 0));
+    
     switch (state_) {
       case 4:
         return kFailed;
@@ -218,6 +221,7 @@ private:
   int state_;
   float sim_time_;
   std::vector<boost::signals2::connection> conns_;
+  Character *character_;
 };
 
 

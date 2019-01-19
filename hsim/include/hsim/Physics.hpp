@@ -52,12 +52,13 @@ public:
   
 };
 
-struct CharacterDesc {
-  
-};
 
 class Character {
 public:
+  virtual ~Character() {}
+  virtual Vector3 Position() const = 0;
+  virtual void SetPosition(const Vector3& position) = 0;
+  virtual void Move(const Vector3& offset) = 0;
 };
 
 class ActorAgent {
@@ -301,6 +302,8 @@ public:
   virtual ~Simulation() {}
   virtual ActorAgent* AddActor(const Actor& actor) = 0;
   virtual void RemoveActor(const ActorAgent& actor_agent) = 0;
+  virtual Character* AddCharacter(Real radius, Real height) = 0;
+  virtual void RemoveCharacter(const Character& character) = 0;
   virtual void Step(double time_step) = 0;
 };
 

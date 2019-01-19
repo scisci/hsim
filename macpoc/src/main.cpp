@@ -134,12 +134,14 @@ void mouseCallback(int button, int state, int x, int y)
 
 void idleCallback()
 {
+/*
   if (!requested_path) {
     requested_path = true;
     TestFile::OpenDirectory([](std::string path) {
       save_path = path;
     });
   }
+  */
   
   glutPostRedisplay();
 }
@@ -182,7 +184,7 @@ void renderLoop()
   sIteration->Next();
   
   
-  sCamera = new Snippets::Camera(physx::PxVec3(2.0f, 2.0f, 2.0f), physx::PxVec3(-1.0f, -1.0f, -1.0f));
+  sCamera = new Snippets::Camera(physx::PxVec3(2.0f, 1.0f, 5.0f), physx::PxVec3(-1.0f, -1.0f, -1.0f));
 
   Snippets::setupDefaultWindow("PhysX Snippet HelloWorld");
   Snippets::setupDefaultRenderState();

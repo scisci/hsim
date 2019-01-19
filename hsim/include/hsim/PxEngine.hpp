@@ -137,6 +137,11 @@ public:
     user_data_({.type = kRigidDynamicActorAgent, .inst = this})
   {}
   
+  ~PxRigidDynamicAgent()
+  {
+    inst_->release();
+  }
+  
   virtual const Actor& Model() const
   {
     return *model_;
@@ -206,9 +211,61 @@ private:
 };
 
 
-class PxCharacterController {
+class PxCharacterController : public Character {
 public:
+  PxCharacterController(physx::PxController *inst)
+  : inst_(inst),
+    user_data_({.type = kCharacterController, .inst = this})
+  {
+    filters_.mFilterFlags = physx::PxQueryFlag::eSTATIC | physx::PxQueryFlag::eDYNAMIC;
+  }
   
+  ~PxCharacterController()
+  {
+    inst_->release();
+  }
+  
+  physx::PxController* Instance()
+  {
+    return inst_;
+  }
+  
+  PxUserData* UserData()
+  {
+    return &user_data_;
+  }
+  
+  virtual hsim::Vector3 Position() const
+  {
+    auto pos = inst_->getPosition();
+    return hsim::Vector3(pos.x, pos.y, pos.z);
+  }
+  
+  virtual void SetPosition(const Vector3& position)
+  {
+    inst_->setPosition(physx::PxExtendedVec3(position.x(), position.y(), position.z()));
+  }
+  
+  virtual void Move(const Vector3& offset)
+  {
+    const physx::PxReal min_dist = 0.001; // Min error for reaching end point
+    const physx::PxReal elapsed_time = 1.0f / 60.0f;
+    physx::PxControllerCollisionFlags flags = inst_->move(
+      physx::PxVec3(offset.x(), offset.y(), offset.z()),
+      min_dist,
+      elapsed_time,
+      filters_,
+      nullptr);
+    
+    if (flags) {
+      std::cout << "colliding " << std::endl;
+    }
+  }
+  
+private:
+  physx::PxController *inst_;
+  PxUserData user_data_;
+  physx::PxControllerFilters filters_;
 };
 
 
@@ -273,9 +330,33 @@ public:
     return scene_;
   }
   
-  virtual Character* AddCharacter(const CharacterDesc& desc)
+  virtual Character* AddCharacter(hsim::Real radius, hsim::Real height)
   {
+    physx::PxCapsuleControllerDesc desc;
+    desc.radius = radius;
+    desc.height = height;
+    desc.climbingMode = physx::PxCapsuleClimbingMode::eEASY;
+    desc.material = floor_material_;
+    physx::PxController* ctrl = ctrl_manager_->createController(desc);
     
+    std::unique_ptr<PxCharacterController> character(new PxCharacterController(ctrl));
+    
+    Character *result = character.get();
+    ctrl->getActor()->userData = character->UserData();
+    
+    auto sorted_pos = std::upper_bound(
+      characters_.begin(),
+      characters_.end(),
+      character.get(),
+      UniquePtrComparator<PxCharacterController>());
+    
+    characters_.insert(sorted_pos, std::move(character));
+    return result;
+  }
+  
+  virtual void RemoveCharacter(const Character& character)
+  {
+    assert(0);
   }
   
   virtual ActorAgent* AddActor(const Actor& actor)
@@ -351,7 +432,6 @@ public:
     
     scene_->removeActor(it->get()->Instance());
     factory_.materials.RemoveActor(it->get()->Model());
-    it->get()->Instance().release();
     actors_.erase(it);
     
     
@@ -474,6 +554,7 @@ private:
   std::vector<physx::PxActor *> sleep_buffer_;
   
   std::vector<std::unique_ptr<PxActorAgent>> actors_;
+  std::vector<std::unique_ptr<PxCharacterController>> characters_;
 };
 
 class PxEngine : public PhysicsEngine {
