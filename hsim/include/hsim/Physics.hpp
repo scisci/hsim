@@ -52,6 +52,14 @@ public:
   
 };
 
+struct CharacterDesc {
+  
+};
+
+class Character {
+public:
+};
+
 class ActorAgent {
 public:
   typedef boost::signals2::signal<void ()> DidSleepSignal;
@@ -60,7 +68,6 @@ public:
   virtual ~ActorAgent() {}
   virtual const Actor& Model() const = 0;
   virtual const TransformHandle& Transform() const = 0;
-  
   virtual void AddImpulseAtLocalPos(const Vector3& force, const Vector3& pos) = 0;
   
   virtual boost::signals2::connection ConnectDidSleep(
@@ -74,6 +81,7 @@ public:
   virtual ~RigidActor() {}
   virtual const std::vector<std::unique_ptr<Shape>>& Shapes() const = 0;
 };
+
 
 class RigidBody : public RigidActor {
 public:

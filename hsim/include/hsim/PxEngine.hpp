@@ -83,12 +83,24 @@ private:
   physx::PxPhysics *physics_;
 };
 
+enum PxUserDataType {
+  kRigidDynamicActorAgent,
+  kCharacterController
+};
+
+struct PxUserData {
+  PxUserDataType type;
+  void *inst;
+};
+
 class PxActorAgent : public ActorAgent {
 public:
   virtual physx::PxActor& Instance() const = 0;
-  
+  virtual PxUserData* UserData() = 0;
   virtual void HandleDidSleep() = 0;
 };
+
+
 
 class PxTransformHandle : public TransformHandle {
 public:
@@ -121,7 +133,8 @@ public:
   PxRigidDynamicAgent(const Actor& model, physx::PxRigidDynamic *inst)
   : model_(&model),
     inst_(inst),
-    transform_(*inst)
+    transform_(*inst),
+    user_data_({.type = kRigidDynamicActorAgent, .inst = this})
   {}
   
   virtual const Actor& Model() const
@@ -137,6 +150,11 @@ public:
   virtual physx::PxActor& Instance() const
   {
     return *inst_;
+  }
+  
+  virtual PxUserData* UserData()
+  {
+    return &user_data_;
   }
   
   virtual void AddImpulseAtLocalPos(const Vector3& force, const Vector3& pos)
@@ -183,9 +201,15 @@ private:
   
   DidSleepSignal sleep_signal_;
   DidAdvanceSignal advance_signal_;
+  
+  PxUserData user_data_;
 };
 
 
+class PxCharacterController {
+public:
+  
+};
 
 
 template <typename T>
@@ -215,7 +239,8 @@ public:
   PxSimulation(physx::PxPhysics* physics, const physx::PxSceneDesc& scene_desc)
   : physics_(physics),
     scene_(physics_->createScene(scene_desc)),
-    factory_(physics)
+    factory_(physics),
+    ctrl_manager_(PxCreateControllerManager(*scene_))
   {
     scene_->setSimulationEventCallback(this);
     
@@ -234,6 +259,7 @@ public:
   }
   
   virtual ~PxSimulation() {
+    ctrl_manager_->release();
     scene_->release();
   }
   
@@ -245,6 +271,11 @@ public:
   physx::PxScene* Scene()
   {
     return scene_;
+  }
+  
+  virtual Character* AddCharacter(const CharacterDesc& desc)
+  {
+    
   }
   
   virtual ActorAgent* AddActor(const Actor& actor)
@@ -289,7 +320,7 @@ public:
     // Store pointer because we are about to move and unique_ptr won't be
     // good anymore
     
-    agent->Instance().userData = agent.get();
+    agent->Instance().userData = agent->UserData();
     scene_->addActor(agent->Instance());
     
     ActorAgent *agent_ptr = agent.get();
@@ -381,8 +412,11 @@ private:
       for (auto it = sleep_buffer_.begin(); it != sleep_buffer_.end(); ++it) {
         physx::PxActor *actor = *it;
         assert(actor->userData != nullptr);
-        PxActorAgent *agent = static_cast<PxActorAgent *>(actor->userData);
-        agent->HandleDidSleep();
+        PxUserData *user_data = static_cast<PxUserData *>(actor->userData);
+        if (user_data->type == kRigidDynamicActorAgent) {
+          PxActorAgent *agent = static_cast<PxActorAgent *>(user_data->inst);
+          agent->HandleDidSleep();
+        }
       }
       sleep_buffer_.clear();
     }
@@ -434,6 +468,7 @@ private:
   physx::PxScene *scene_;
   PxFactory factory_;
   physx::PxMaterial *floor_material_;
+  physx::PxControllerManager *ctrl_manager_;
   
   int event_flags_;
   std::vector<physx::PxActor *> sleep_buffer_;

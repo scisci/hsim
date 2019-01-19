@@ -22,4 +22,4 @@ link_directories(/usr/local/lib)
 
 add_executable(${PROJECT_NAME} ${srcs})
 
-target_link_libraries(${PROJECT_NAME} PhysX PhysXExtensions ${OPENGL_LIBRARIES} ${GLUT_LIBRARY} hsim MacSandboxUtilities)
+target_link_libraries(${PROJECT_NAME} PhysX PhysXExtensions PhysXCharacterKinematic ${OPENGL_LIBRARIES} ${GLUT_LIBRARY} hsim MacSandboxUtilities)

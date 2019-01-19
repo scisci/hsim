@@ -100,56 +100,14 @@ void keyboardCallback(unsigned char key, int x, int y)
 
 
 
-physx::PxMat44 ConvertTransform(const hsim::Matrix4& matrix)
-  {
-    float values[16];
-    for (int i = 0; i < 16; i++) {
-      values[i] = matrix(i);
-    }
-    return physx::PxMat44(values);
-  }
-
-
-template<class T>
-Eigen::Matrix<T,4,4> perspective
-(
-    double fovy,
-    double aspect,
-    double zNear,
-    double zFar
-)
-{
-    typedef Eigen::Matrix<T,4,4> Matrix4;
-
-    assert(aspect > 0);
-    assert(zFar > zNear);
-
-    double radf = fovy * M_PI / 180.0;
-
-    double tanHalfFovy = tan(radf / 2.0);
-    Matrix4 res = Matrix4::Zero();
-    res(0,0) = 1.0 / (aspect * tanHalfFovy);
-    res(1,1) = 1.0 / (tanHalfFovy);
-    res(2,2) = - (zFar + zNear) / (zFar - zNear);
-    res(3, 2) = - 1.0;
-    res(2, 3) = - (2.0 * zFar * zNear) / (zFar - zNear);
-    return res;
-}
-
-void print_mat4(const hsim::Matrix4 mat)
-{
-  std::cout <<
-    mat(0, 0) << " " << mat(0, 1) << " " << mat(0, 2) << " " << mat(0, 3) << "\n" <<
-    mat(1, 0) << " " << mat(1, 1) << " " << mat(1, 2) << " " << mat(1, 3) << "\n" <<
-    mat(2, 0) << " " << mat(2, 1) << " " << mat(2, 2) << " " << mat(2, 3) << "\n" <<
-    mat(3, 0) << " " << mat(3, 1) << " " << mat(3, 2) << " " << mat(3, 3) << std::endl;
-}
 
 
 void mouseCallback(int button, int state, int x, int y)
 {
   sCamera->handleMouse(button, state, x, y);
 
+/*
+  // Drop a box based on the mouse coord
   hsim::Real width = 512.0;
   hsim::Real height = 512.0;
   hsim::Real znear = 1.0f;
@@ -158,8 +116,6 @@ void mouseCallback(int button, int state, int x, int y)
   physx::PxVec3 eye = sCamera->getEye();
   physx::PxVec3 dir = sCamera->getDir();
   physx::PxVec3 targ = eye + dir;
-  
-
 
   hsim::Matrix4 view_matrix = hsim::CalcViewMatrix(
     hsim::Vector3(eye.x, eye.y, eye.z),
@@ -173,7 +129,7 @@ void mouseCallback(int button, int state, int x, int y)
   
   hsim::Vector3 pos = ray.PointAtDistance(20.0);
   sIteration->AddMouseTest(pos);
-
+*/
 }
 
 void idleCallback()
