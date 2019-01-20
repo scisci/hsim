@@ -58,10 +58,30 @@ void keyPress(unsigned char key, const PxTransform& camera)
 
 namespace
 {
+
+struct ConeTest {
+  ConeTest()
+  {
+    hsim::RigidBodyBuilder builder;
+    hsim::Transform transform = hsim::Transform::Identity();
+    // Rotate cone 90 degrees since by default opengl renders as point down z-axis
+    hsim::Real height = 2.0;
+    hsim::Real radius = 1.0;
+    transform.rotate(Eigen::AngleAxis<hsim::Real>(M_PI / 2.0, hsim::Vector3::UnitX()));
+    transform.translation() = hsim::Vector3(-3.0, height, 0.0);
+    std::unique_ptr<hsim::Geometry> geom(new hsim::Cone(radius, height));
+    builder.AddShape(std::move(geom), 1000.0, transform);
+    cone1 = builder.Build();
+  }
+  
+  std::unique_ptr<hsim::RigidBody> cone1;
+};
+
 hsim::PxEngine *sEngine;
 bool requested_path = false;
 std::string save_path;
 std::unique_ptr<hsim::Iteration> sIteration;
+ConeTest cone_test;
 
 Snippets::Camera*  sCamera;
 
@@ -164,7 +184,8 @@ void renderCallback()
     scene->getActors(physx::PxActorTypeFlag::eRIGID_DYNAMIC | physx::PxActorTypeFlag::eRIGID_STATIC, reinterpret_cast<physx::PxActor**>(&actors[0]), nbActors);
     Snippets::renderActors(&actors[0], static_cast<physx::PxU32>(actors.size()), true);
   }
-
+  
+  Snippets::renderActor(*cone_test.cone1.get());
   Snippets::finishRender();
 }
 

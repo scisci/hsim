@@ -50,6 +50,20 @@ static float gCylinderData[]={
 #define MAX_NUM_MESH_VEC3S  1024
 static PxVec3 gVertexBuffer[MAX_NUM_MESH_VEC3S];
 
+void renderOtherGeometry(const hsim::Geometry& geometry)
+{
+  switch (geometry.Type()) {
+    case hsim::kCone:
+      {
+        const hsim::Cone& cone = static_cast<const hsim::Cone&>(geometry);
+        glutSolidCone(cone.Radius(), cone.Height(), 8, 3);
+        break;
+      }
+    default:
+      assert(0);
+  }
+}
+
 void renderGeometry(const PxGeometryHolder& h)
 {
 	switch(h.getType())
@@ -293,6 +307,51 @@ void startRender(const PxVec3& cameraEye, const PxVec3& cameraDir, PxReal clipNe
  glGetFloatv(GL_MODELVIEW_MATRIX, &res[0]);
 
 	glColor4f(0.4f, 0.4f, 0.4f, 1.0f);
+}
+
+void renderActor(const hsim::RigidBody& actor)
+{
+  float mat[16];
+  hsim::ToGLMatrix(actor.Transform(), &mat[0]);
+  glPushMatrix();
+  glMultMatrixf(&mat[0]);
+  
+  auto& shapes = actor.Shapes();
+  for (auto it = shapes.begin(); it != shapes.end(); ++it) {
+    hsim::ToGLMatrix(it->get()->Transform(), &mat[0]);
+    glPushMatrix();
+    glMultMatrixf(&mat[0]);
+  
+    //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+    glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
+    renderOtherGeometry(it->get()->Geometry());
+    glPopMatrix();
+
+    if(true)
+      {
+        const PxVec3 shadowDir(0.0f, -0.7071067f, -0.7071067f);
+        const PxReal shadowMat[]={ 1,0,0,0, -shadowDir.x/shadowDir.y,0,-shadowDir.z/shadowDir.y,0, 0,0,1,0, 0,0,0,1 };
+        glPushMatrix();
+        glMultMatrixf(shadowMat);
+        hsim::ToGLMatrix(actor.Transform(), &mat[0]);
+        glPushMatrix();
+        glMultMatrixf(&mat[0]);
+        hsim::ToGLMatrix(it->get()->Transform(), &mat[0]);
+        glPushMatrix();
+        glMultMatrixf(&mat[0]);
+        glDisable(GL_LIGHTING);
+        glColor4f(0.1f, 0.2f, 0.3f, 1.0f);
+        renderOtherGeometry(it->get()->Geometry());
+        glEnable(GL_LIGHTING);
+        glPopMatrix();
+        glPopMatrix();
+        glPopMatrix();
+      }
+
+  }
+  
+  glPopMatrix();
+  
 }
 
 void renderActors(PxRigidActor** actors, const PxU32 numActors, bool shadows, const PxVec3 & color)

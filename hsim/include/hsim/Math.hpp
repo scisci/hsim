@@ -5,6 +5,8 @@
 
 #include <Eigen/Core>
 
+#include <iostream>
+
 namespace hsim {
 
 typedef double Real;
@@ -17,6 +19,8 @@ typedef Eigen::Matrix<Real, 6, 1> Vector6;
 typedef Eigen::Transform<Real, 3, Eigen::Isometry> Transform;
 typedef Eigen::Transform<Real, 3, Eigen::Affine> AffineTransform;
 typedef Eigen::Transform<Real, 3, Eigen::Projective> ProjectionTransform;
+
+void ToGLMatrix(const Transform& transform, float *out);
 
 struct Ray {
   Ray(const Vector3& start, const Vector3& end)

@@ -10,7 +10,8 @@ namespace hsim {
 
 enum GeometryType {
   kBox,
-  kSphere
+  kSphere,
+  kCone
 };
 
 class Geometry {
@@ -53,15 +54,33 @@ private:
   Real radius_;
 };
 
+class Cone : public Geometry {
+public:
+  Cone(Real radius, Real height)
+  : radius_(radius),
+    height_(height)
+  {}
+  
+  virtual GeometryType Type() const { return GeometryType::kCone; }
+  Real Radius() const { return radius_; }
+  Real Height() const { return height_; }
+
+private:
+  Real radius_;
+  Real height_;
+};
+
 class MassProperties {
 public:
   static Matrix3 ComputeInertia(const Geometry& geometry, Real mass);
   static Matrix3 ComputeInertia(const Box& box, Real mass);
   static Matrix3 ComputeInertia(const Sphere& sphere, Real mass);
+  static Matrix3 ComputeInertia(const Cone& cone, Real mass);
   
   static Real ComputeVolume(const Geometry& geometry);
   static Real ComputeVolume(const Box& box);
   static Real ComputeVolume(const Sphere& sphere);
+  static Real ComputeVolume(const Cone& cone);
 };
 
 } // namespace hsim

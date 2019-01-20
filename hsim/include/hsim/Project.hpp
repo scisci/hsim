@@ -106,6 +106,9 @@ public:
   void Load()
   {
     agent_ = simulation_->AddActor(*(actor_.get()));
+    
+    //float gl[16];
+    //ToGLMatrix(agent_->Transform(), gl);
 
     conns_.push_back(
       agent_->ConnectDidSleep(

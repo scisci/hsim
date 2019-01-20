@@ -10,6 +10,17 @@
 
 namespace hsim {
 
+void ToGLMatrix(const Transform& transform, float *out)
+{
+  if (std::is_same<Real, float>::value) {
+    memcpy(out, transform.data(), 16 * sizeof(float));
+  }
+  const Real *src = transform.data();
+  for (int i = 0; i < 16; i++) {
+    out[i] = src[i];
+  }
+}
+
 Matrix4 CalcXYWHProjection(
   Real x,
   Real y,
