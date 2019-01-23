@@ -13,8 +13,8 @@ std::unique_ptr<htree::Tree> Project::GenerateTree()
 {
   std::uniform_int_distribution<int64_t> seed_dist(0, std::numeric_limits<int64_t>::max());
   htree::RatioSourcePtr ratio_source(new htree::golden::GoldenRatioSource());
-  double container_ratio_xy = 1.0;
-  double container_ratio_zy = 1.0;
+  double container_ratio_xy = 0.125;
+  double container_ratio_zy = 0.125;
   
   int num_leaves = std::uniform_int_distribution<>(200, 400)(rng);
 
@@ -26,10 +26,16 @@ htree::StringNodeAttributes Project::Attribute(const htree::Tree& tree)
 {
   std::uniform_int_distribution<int64_t> seed_dist(0, std::numeric_limits<int64_t>::max());
   double attr_chaos = 1.0;
+  
+  htree::OverlapConstraint overlap;
+  overlap.min_overlap_area = 0.01; // One cm - OR -
+  overlap.min_overlap_norm = 0.01; // one percent
+  
   htree::EdgePathAttributer attributer(
     {{ .from = htree::EdgeName::kEdgeNameBottom, .to = htree::EdgeName::kEdgeNameTop }},
     attr_chaos,
-    seed_dist(rng));
+    seed_dist(rng),
+    overlap);
   
   return attributer.Attribute(tree);
 }

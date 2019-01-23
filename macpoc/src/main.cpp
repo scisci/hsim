@@ -11,10 +11,12 @@
 #include "hsim/Project.hpp"
 #include "hsim/Math.hpp"
 
+#include "hsim/RealRangeDichotomy.hpp"
+
 #include "hsim/PxEngine.hpp"
 
 #include "FileUtils.hpp"
-
+#include "hsim/ParabolaMotionValidator.hpp"
 
 #define RENDER_SNIPPET
 
@@ -62,19 +64,43 @@ namespace
 struct ConeTest {
   ConeTest()
   {
+    hsim::Vector3 cone1_pos(-3.0, 0.0, 0.0);
+    hsim::Vector3 cone1_up(0.0, 1.0, 0.0);
+    hsim::Vector3 cone2_pos(3.0, 0.0, 0.0);
+    hsim::Vector3 cone2_up(0.0, 1.0, 0.0);
+    
     hsim::RigidBodyBuilder builder;
     hsim::Transform transform = hsim::Transform::Identity();
     // Rotate cone 90 degrees since by default opengl renders as point down z-axis
-    hsim::Real height = 2.0;
-    hsim::Real radius = 1.0;
+    hsim::Real height = 1.0;
+    hsim::Real radius = 0.5;
     transform.rotate(Eigen::AngleAxis<hsim::Real>(M_PI / 2.0, hsim::Vector3::UnitX()));
-    transform.translation() = hsim::Vector3(-3.0, height, 0.0);
+    transform.translation() = cone1_pos + hsim::Vector3(0, height, 0);
     std::unique_ptr<hsim::Geometry> geom(new hsim::Cone(radius, height));
     builder.AddShape(std::move(geom), 1000.0, transform);
     cone1 = builder.Build();
+    
+    transform = hsim::Transform::Identity();
+    transform.rotate(Eigen::AngleAxis<hsim::Real>(M_PI / 2.0, hsim::Vector3::UnitX()));
+    transform.translation() = cone2_pos + hsim::Vector3(0, height, 0);
+    geom.reset(new hsim::Cone(radius, height));
+    builder.AddShape(std::move(geom), 1000.0, transform);
+    cone2 = builder.Build();
+    
+    // Calculate the curve
+    hsim::ParabolaMotionValidator validator(1.0, 0.2);
+    auto coefs = validator.ComputeCoefficients(cone1_pos, cone1_up, cone2_pos, cone2_up);
+    auto length = validator.ComputeLength(cone1_pos, cone2_pos, coefs);
+    
+    int num_points = 20;
+    for (int i = 0; i <= 20; ++i) {
+      curve.push_back(validator.ParabolaParam(i * length/20.0, cone1_pos, cone2_pos, length, coefs));
+    }
   }
   
   std::unique_ptr<hsim::RigidBody> cone1;
+  std::unique_ptr<hsim::RigidBody> cone2;
+  std::vector<hsim::Vector3> curve;
 };
 
 hsim::PxEngine *sEngine;
@@ -185,7 +211,21 @@ void renderCallback()
     Snippets::renderActors(&actors[0], static_cast<physx::PxU32>(actors.size()), true);
   }
   
+  glBegin(GL_LINE_STRIP);
+  
+  for (auto& vertex : cone_test.curve) {
+    glVertex3f(vertex.x(), vertex.y(), vertex.z());
+  }
+
+glEnd();
+  
+  
   Snippets::renderActor(*cone_test.cone1.get());
+  Snippets::renderActor(*cone_test.cone2.get());
+  
+  
+  // Render the cone path
+  
   Snippets::finishRender();
 }
 
@@ -225,6 +265,10 @@ void renderLoop()
 
 int main(int argc, char *argv[])
 {
+  hsim::RealRangeDichotomy d(10.0, 110.0, 10);
+  for (auto& part : d) {
+    std::cout << part;
+  }
 
 #ifdef RENDER_SNIPPET
   renderLoop();
