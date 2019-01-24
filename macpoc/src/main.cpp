@@ -66,7 +66,7 @@ struct ConeTest {
   {
     hsim::Vector3 cone1_pos(-3.0, 0.0, 0.0);
     hsim::Vector3 cone1_up(0.0, 1.0, 0.0);
-    hsim::Vector3 cone2_pos(3.0, 0.0, 0.0);
+    hsim::Vector3 cone2_pos(3.0, 1.0, 5.0);
     hsim::Vector3 cone2_up(0.0, 1.0, 0.0);
     
     hsim::RigidBodyBuilder builder;
