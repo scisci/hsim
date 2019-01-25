@@ -64,37 +64,54 @@ namespace
 struct ConeTest {
   ConeTest()
   {
-    hsim::Vector3 cone1_pos(-3.0, 0.0, 0.0);
+    hsim::Real friction = 1.2;
+    hsim::Real max_height = 7.0;
+    hsim::Real max_vel = sqrt(max_height * 9.81);
+    hsim::ParabolaMotionValidator validator(max_vel, friction);
+    hsim::Real phi = hsim::ParabolaMotionValidator::ComputeHalfConeAngle(1.2);
+    hsim::Real cone_height = 0.1;
+    hsim::Real cone_radius = tan(phi) * cone_height;
+    
+    hsim::Vector3 cone1_pos(-3.0, 4.0, 0.0);
     hsim::Vector3 cone1_up(0.0, 1.0, 0.0);
-    hsim::Vector3 cone2_pos(3.0, 1.0, 5.0);
+    hsim::Vector3 cone2_pos(-1.0, 2.0, 0.0);
     hsim::Vector3 cone2_up(0.0, 1.0, 0.0);
     
     hsim::RigidBodyBuilder builder;
     hsim::Transform transform = hsim::Transform::Identity();
     // Rotate cone 90 degrees since by default opengl renders as point down z-axis
-    hsim::Real height = 1.0;
-    hsim::Real radius = 0.5;
+
     transform.rotate(Eigen::AngleAxis<hsim::Real>(M_PI / 2.0, hsim::Vector3::UnitX()));
-    transform.translation() = cone1_pos + hsim::Vector3(0, height, 0);
-    std::unique_ptr<hsim::Geometry> geom(new hsim::Cone(radius, height));
+    transform.translation() = cone1_pos + hsim::Vector3(0, cone_height, 0);
+    std::unique_ptr<hsim::Geometry> geom(new hsim::Cone(cone_radius, cone_height));
     builder.AddShape(std::move(geom), 1000.0, transform);
     cone1 = builder.Build();
     
     transform = hsim::Transform::Identity();
     transform.rotate(Eigen::AngleAxis<hsim::Real>(M_PI / 2.0, hsim::Vector3::UnitX()));
-    transform.translation() = cone2_pos + hsim::Vector3(0, height, 0);
-    geom.reset(new hsim::Cone(radius, height));
+    transform.translation() = cone2_pos + hsim::Vector3(0, cone_height, 0);
+    geom.reset(new hsim::Cone(cone_radius, cone_height));
     builder.AddShape(std::move(geom), 1000.0, transform);
     cone2 = builder.Build();
     
     // Calculate the curve
-    hsim::ParabolaMotionValidator validator(1.0, 0.2);
-    auto coefs = validator.ComputeCoefficients(cone1_pos, cone1_up, cone2_pos, cone2_up);
-    auto length = validator.ComputeLength(cone1_pos, cone2_pos, coefs);
     
-    int num_points = 20;
-    for (int i = 0; i <= 20; ++i) {
-      curve.push_back(validator.ParabolaParam(i * length/20.0, cone1_pos, cone2_pos, length, coefs));
+    auto path = validator.ComputePath(cone1_pos, cone1_up, cone2_pos, cone2_up);
+    if (path == nullptr) {
+      // no path
+    } else {
+      int num_points = 20;
+      hsim::Real length = path->Length();
+      for (int i = 0; i <= 20; ++i) {
+        curve.push_back(path->Compute(i * length/20.0));
+      }
+      
+      hsim::Vector3 last = path->Compute(0.99 * length);
+      hsim::Vector3 dif = (last - cone2_pos).normalized();
+      hsim::Real min = M_PI / 2 - phi;
+      hsim::Real angle = M_PI - acos(dif.dot(hsim::Vector3::UnitX()));
+      hsim::Real other = atan2(dif(1), dif(0));
+      std::cout << "Angle is " << angle << " min is " << min << std::endl;
     }
   }
   

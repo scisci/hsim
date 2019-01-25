@@ -8,178 +8,51 @@
 #ifndef HSIM_CONSTRAINED_JUMP_TRAJECTORY_H
 #define HSIM_CONSTRAINED_JUMP_TRAJECTORY_H
 
+#include "hsim/Math.hpp"
+#include "hsim/RealRangeDichotomy.hpp"
+
 namespace hsim {
 
-class ParabolaMotionValidator {
+class ParabolaPath {
 public:
-  ParabolaMotionValidator(Real vel_max, Real friction)
-  : gravity_(9.81),
-    vel0_max_(vel_max),
-    vel1_max_(vel_max),
-    friction_(friction),
-    alpha_(0.001),
-    search_limit_(7),
-    up_index_(1), // y up
-    depth_index_(2), // z depth
-    max_height_(100.0)
-  {}
+  //! coefs(0)^2 + coefs(1) + coefs(2) where coefs(3) = theta
+  typedef Eigen::Matrix<Real, 4, 1> Coefs;
   
-  Vector4 ComputeCoefficients(
-    const Eigen::Ref<Vector3>& p0,
-    const Eigen::Ref<Vector3>& n0,
-    const Eigen::Ref<Vector3>& p1,
-    const Eigen::Ref<Vector3>& n1) const
-  {
-    const Vector3 dif = p1 - p0;
-    // Rotate points along up axis onto 2d plane defined by theta
-    const Real theta = atan2(dif(depth_index_), dif(0));
-    const Real x_theta0 = cos(theta) * p0(0) + sin(theta) * p0(depth_index_);
-    const Real x_theta1 = cos(theta) * p1(0) + sin(theta) * p1(depth_index_);
-    const Real width = cos(theta) * dif(0) + sin(theta) * dif(depth_index_);
-    const Real up_offset = dif(up_index_);
-    const Real phi = atan(friction_); // phi is angle of repose
-    
-    // 5th Constraint
-    Real delta0;
-    Real delta1;
-    bool ok = false;
-    //auto c0_delta = std::make_pair(0.0, false);
-    //auto c1_delta = std::make_pair(0.0, false);
-    if (!IsNormalVertical(n0)) {
-      std::tie(delta0, ok) = TestConePlaneIntersection(p0, n0, friction_, theta, 1);
-      if (!ok) {
-        // Return empty path
-        assert(0);
-      }
-    } else {
-      delta0 = phi;
-    }
-    
-    if (!IsNormalVertical(n1)) {
-      std::tie(delta0, ok) = TestConePlaneIntersection(p1, n1, friction_, theta, 2);
-      if (!ok) {
-        // Return empty path
-        assert(0);
-      }
-    } else {
-      delta1 = phi;
-    }
-    
-    // Gamma theta angles
-    const Real n0_angle = atan2(n0(up_index_), cos(theta) * n0(0) +
-      sin(theta) * n1(depth_index_));
-    const Real n1_angle = atan2(n1(up_index_), cos(theta) * n1(0) +
-      sin(theta) * n1(depth_index_));
-    
-    const Real alpha_0_min = n0_angle - delta0;
-    const Real alpha_0_max = n0_angle + delta0;
-    
-    const Real alpha_inf4 = atan(dif(up_index_) / width);
-    
-    Real alpha_imp_min = n1_angle - M_PI - delta1;
-    Real alpha_imp_max = n1_angle + M_PI + delta1;
-    
-    if (n1_angle < 0) {
-      alpha_imp_min = n1_angle + M_PI - delta1;
-      alpha_imp_max = n1_angle + M_PI + delta1;
-    }
-    
-    Real alpha_lim_plus;
-    Real alpha_lim_minus;
-    std::tie(alpha_lim_plus, alpha_lim_minus, ok) = TestSecondConstraint(width, dif(up_index_));
-    if (!ok) {
-      // Return empty path
-      assert(0);
-    }
-    
-    Real alpha_imp_plus;
-    Real alpha_imp_minus;
-    std::tie(alpha_imp_plus, alpha_imp_minus, ok) = TestSixthConstraint(width, dif(up_index_));
-    if (!ok) {
-      // return empty path
-      assert(0);
-    }
-    
-    Real alpha_imp_inf;
-    Real alpha_imp_sup;
-    std::tie(alpha_imp_inf, alpha_imp_sup, ok) = TestThirdConstraint(width, dif(up_index_), alpha_imp_min, alpha_imp_max, n1_angle);
-    if (!ok) {
-      // return empty path
-      assert(0);
-    }
-    
-    Real alpha_inf_bound = 0;
-    Real alpha_sup_bound = 0;
-    
-    /* Define alpha_0 interval satisfying constraints */
-    if (n1_angle > 0) {
-      alpha_lim_minus = std::max(alpha_lim_minus, alpha_imp_minus);
-      alpha_inf_bound = std::max(std::max(alpha_imp_inf, alpha_lim_minus),
-        std::max(alpha_0_min, alpha_inf4 + alpha_));
-      
-      if (alpha_imp_min < -M_PI / 2) {
-        alpha_lim_plus = std::min(alpha_lim_plus, alpha_imp_minus);
-        alpha_sup_bound = std::min(alpha_0_max,
-          std::min(alpha_lim_plus, M_PI / 2));
-      } else {// alpha_imp_sup is worth
-        alpha_lim_plus = std::min(alpha_lim_plus, alpha_imp_plus);
-        alpha_sup_bound = std::min(std::min(alpha_0_max, M_PI / 2),
-          std::min(alpha_lim_plus, alpha_imp_sup));
-      }
-    } else { // down oriented cone
-      if (alpha_imp_max < M_PI / 2) {
-        alpha_lim_minus = std::max(alpha_lim_minus, alpha_imp_minus);
-        alpha_inf_bound = std::max(std::max(alpha_imp_inf, alpha_lim_minus),
-          std::max(alpha_0_min, alpha_inf4 + alpha_));
-      } else {// alpha_imp_max >= M_PI/2 so alpha_imp_inf inaccurate
-        alpha_lim_minus = std::max(alpha_lim_minus, alpha_imp_minus);
-        alpha_inf_bound = std::max(std::max(alpha_0_min, alpha_inf4 + alpha_),
-          alpha_lim_minus);
-      }
-      
-      alpha_lim_plus = std::min(alpha_lim_plus, alpha_imp_plus);
-      alpha_sup_bound = std::min(std::min(alpha_0_max, M_PI / 2),
-        std::min(alpha_lim_plus, alpha_imp_sup));
-    }
-    
-    if (alpha_inf_bound > alpha_sup_bound) {
-      assert(0);
-      // constraints intersection is empty
-      // return empty
-    }
-    
-    Real alpha = 0.5 * (alpha_inf_bound + alpha_sup_bound);
-    auto coefs = ComputeCoefficients(alpha, theta, width, up_offset, x_theta0, p0(up_index_));
-    auto coefs_inf = ComputeCoefficients(alpha_inf_bound, theta, width, up_offset, x_theta0, p0(up_index_));
-    bool max_height_respected = IsMaxHeightRespected(coefs_inf, x_theta0, x_theta1);
-    if (!max_height_respected) {
-      assert(0);
-      // Path is out of bounds
-    }
-    
-    // not sure why
-    max_height_respected = IsMaxHeightRespected(coefs, x_theta0, x_theta1);
-    
-    // TODO: dichotomy now
-    return ComputeCoefficients(60 * M_PI / 180.0, theta, width, up_offset, x_theta0, p0(up_index_));
-  }
+  ParabolaPath(
+    const Eigen::Ref<const Vector3>& start,
+    const Eigen::Ref<const Vector3>& end,
+    Real length,
+    const Eigen::Ref<const Coefs>& coefs)
+    : start_(start), end_(end), length_(length), coefs_(coefs)
+    {}
   
-  Vector4 ComputeCoefficients(
-    Real angle,
+  static Coefs ComputeCoefficients(
+    //! Gravity in meters/sec
+    Real gravity,
+    //! Start angle of parabola in the plane
+    Real alpha,
+    //! The angle of the vertical parabola plane
     Real theta,
+    //! The width of the parabola on the plane
     Real width,
+    //! The difference in y on the plane from start to end
     Real up_offset,
+    //! The starting x pos on plane
     Real x,
-    Real y) const
+    //! The starting y pos on plane
+    Real y)
   {
-    Vector4 coefs;
-    const Real vel_x0 = sqrt((gravity_ * width * width) /
-      (2.0 * (width * tan(angle) - up_offset)));
+    ParabolaPath::Coefs coefs;
+    const Real tan_alpha = tan(alpha);
+    const Real vel_x0 = sqrt((gravity * width * width) /
+      (2.0 * (width * tan_alpha - up_offset)));
     const Real inv_vel_x0_sq = 1.0 / (vel_x0 * vel_x0);
-    coefs(0) = -0.5 * gravity_ * inv_vel_x0_sq;
-    coefs(1) = tan(angle) + gravity_ * x * inv_vel_x0_sq;
-    coefs(2) = y - tan(angle) * x - 0.5 * gravity_ * x * x * inv_vel_x0_sq;
+    
+    coefs(0) = -0.5 * gravity * inv_vel_x0_sq;
+    coefs(1) = tan_alpha + gravity * x * inv_vel_x0_sq;
+    coefs(2) = y - tan_alpha * x - 0.5 * gravity * x * x * inv_vel_x0_sq;
     coefs(3) = theta;
+    
     return coefs;
   }
   
@@ -188,17 +61,15 @@ public:
     https://www.mathsisfun.com/calculus/arc-length.html
     So we integrate on sqrt(1 + f'(x)^2)
   */
-  Real ComputeLength(
-    const Eigen::Ref<Vector3>& p0,
-    const Eigen::Ref<Vector3>& p1,
-    const Eigen::Ref<Vector4>& coefs) const
+  static Real ComputeLength(
+    const Eigen::Ref<const Vector3>& p0,
+    const Eigen::Ref<const Vector3>& p1,
+    const Eigen::Ref<const Coefs>& coefs)
   {
+    const Real theta = coefs(3);
     Real length = 0.0;
-    Real x1 = p0(0);
-    Real x2 = p1(0);
-    Real theta = coefs(3);
-    x1 = cos(theta) * p0(0) + sin(theta) * p0(depth_index_);
-    x2 = cos(theta) * p1(0) + sin(theta) * p1(depth_index_);
+    Real x1 = cos(theta) * p0(RtIdx) + sin(theta) * p0(InIdx);
+    Real x2 = cos(theta) * p1(RtIdx) + sin(theta) * p1(InIdx);
     
     if (x1 > x2) {
       const Real tmp = x1;
@@ -222,62 +93,278 @@ public:
     return length;
   }
   
-  Vector3 ParabolaParam(
+  
+  //! Param is curvlinear absisca (distance along path)
+  static void ComputeParam(
     Real param,
-    const Eigen::Ref<Vector3>& p0,
-    const Eigen::Ref<Vector3>& p1,
+    const Eigen::Ref<const Vector3>& p0,
+    const Eigen::Ref<const Vector3>& p1,
     Real length,
-    const Eigen::Ref<Vector4>& coefs)
+    const Eigen::Ref<const Coefs>& coefs,
+    Eigen::Ref<Vector3> out)
   {
-    Vector3 result;
+    if (param == 0) {
+      out = p0;
+      return;
+    }
+    
+    if (param == length) {
+      out = p1;
+      return;
+    }
+
     const Real u = param / length;
     const Real theta = coefs(3);
-    const Real x_theta_max = -0.5 * coefs(1) / coefs(0);
-    const Real x_theta_initial =
-      cos(theta) * p0(0) +
-      sin(theta) * p0(depth_index_);
-    const Real x_theta_end =
-      cos(theta) * p1(0) +
-      sin(theta) * p1(depth_index_);
-    const Real u_max =
-      (x_theta_max - x_theta_initial) /
-      (x_theta_end - x_theta_initial);
+    
+    // Below is used for degree of freedom test not used
+    
+    //const Real x_theta_max = -0.5 * coefs(1) / coefs(0);
+    //const Real x_theta_initial =
+    //  cos(theta) * p0(RtIdx) +
+    //  sin(theta) * p0(InIdx);
+    //const Real x_theta_end =
+    //  cos(theta) * p1(RtIdx) +
+    //  sin(theta) * p1(InIdx);
+    
+    //const Real u_max =
+    //  (x_theta_max - x_theta_initial) /
+    //  (x_theta_end - x_theta_initial);
     
     const bool tan_undefined =
       (theta < M_PI / 2 + 1e-2 && theta > M_PI / 2 - 1e-2) ||
       (theta > -M_PI / 2 - 1e-2 && theta < -M_PI/2 + 1e-2);
     
     if (!tan_undefined) {
-      Real tan_theta = tan(theta);
-      result(0) = (1 - u) * p0(0) + u * p1(0);
-      result(depth_index_) = tan_theta * result(0) - tan_theta * p0(0) + p0(depth_index_);
-      Real x_theta = cos(theta) * result(0) + sin(theta) * result(depth_index_);
-      result(up_index_) = coefs(0) * x_theta * x_theta + coefs(1) * x_theta + coefs(2);
-    } else {
-      result(0) = p0(0);
-      result(depth_index_) = (1 - u) * p0(depth_index_) + u * p1(depth_index_);
-      Real x_theta = cos(theta) * result(0) + sin(theta) * result(depth_index_);
-      result(up_index_) = coefs(0) * x_theta * x_theta + coefs(1) * x_theta + coefs(2);
+      const Real tan_theta = tan(theta);
+      out(RtIdx) = (1 - u) * p0(RtIdx) + u * p1(RtIdx);
+      out(InIdx) = tan_theta * out(RtIdx) - tan_theta * p0(RtIdx) + p0(InIdx);
+      const Real x_theta = cos(theta) * out(RtIdx) + sin(theta) * out(InIdx);
+      out(UpIdx) = coefs(0) * x_theta * x_theta + coefs(1) * x_theta + coefs(2);
+      return;
     }
     
+    out(RtIdx) = p0(RtIdx);
+    out(InIdx) = (1 - u) * p0(InIdx) + u * p1(InIdx);
+    const Real x_theta = cos(theta) * out(RtIdx) + sin(theta) * out(InIdx);
+    out(UpIdx) = coefs(0) * x_theta * x_theta + coefs(1) * x_theta + coefs(2);
+  }
+  
+  Real Length() const
+  {
+    return length_;
+  }
+  
+  Vector3 Compute(Real param) const
+  {
+    Vector3 result;
+    ComputeParam(param, start_, end_, length_, coefs_, result);
     return result;
+  }
+  
+  void Compute(Real param, Eigen::Ref<Vector3> out) const
+  {
+    ComputeParam(param, start_, end_, length_, coefs_, out);
   }
   
 private:
   // Function equivalent to sqrt( 1 + f'(x)^2 )
-  inline Real ArcLength(Real x, const Vector4& coefs) const
+  static inline Real ArcLength(Real x, const Eigen::Ref<const Coefs>& coefs)
   {
     const Real v = 2 * coefs(0) * x + coefs(1);
     return sqrt(1.0 + v * v);
   }
   
-  inline bool IsNormalVertical(const Eigen::Ref<Vector3>& n) const
+  Vector3 start_;
+  Vector3 end_;
+  Real length_;
+  Coefs coefs_;
+};
+
+class ParabolaMotionValidator {
+public:
+  ParabolaMotionValidator(Real vel_max, Real friction)
+  : gravity_(9.81),
+    vel0_max_(vel_max),
+    vel1_max_(vel_max),
+    friction_(friction),
+    alpha_(0.001),
+    max_height_(100.0),
+    search_limit_(7)
+  {}
+  
+  std::unique_ptr<ParabolaPath> ComputePath(
+    const Eigen::Ref<const Vector3>& p0,
+    const Eigen::Ref<const Vector3>& n0,
+    const Eigen::Ref<const Vector3>& p1,
+    const Eigen::Ref<const Vector3>& n1) const
+  {
+    std::unique_ptr<ParabolaPath> result;
+    
+    const Vector3 dif = p1 - p0;
+    // Rotate points along up axis onto 2d plane defined by theta
+    const Real theta = atan2(dif(InIdx), dif(RtIdx));
+    const Real x_theta0 = cos(theta) * p0(RtIdx) + sin(theta) * p0(InIdx);
+    const Real x_theta1 = cos(theta) * p1(RtIdx) + sin(theta) * p1(InIdx);
+    const Real width = cos(theta) * dif(RtIdx) + sin(theta) * dif(InIdx);
+    const Real up_offset = dif(UpIdx);
+    const Real phi = ComputeHalfConeAngle(friction_); // phi is angle of repose, half friction cone
+    
+    // 5th Constraint
+    Real delta0;
+    Real delta1;
+    bool ok = false;
+
+    if (!IsNormalVertical(n0)) {
+      std::tie(delta0, ok) = TestConePlaneIntersection(p0, n0, friction_, theta, 1);
+      if (!ok) {
+        return result;
+      }
+    } else {
+      delta0 = phi;
+    }
+    
+    if (!IsNormalVertical(n1)) {
+      std::tie(delta1, ok) = TestConePlaneIntersection(p1, n1, friction_, theta, 2);
+      if (!ok) {
+        return result;
+      }
+    } else {
+      delta1 = phi;
+    }
+    
+    // Gamma theta angles
+    const Real n0_angle = atan2(n0(UpIdx), cos(theta) * n0(RtIdx) +
+      sin(theta) * n0(InIdx));
+    const Real n1_angle = atan2(n1(UpIdx), cos(theta) * n1(RtIdx) +
+      sin(theta) * n1(InIdx));
+    
+    const Real alpha_0_min = n0_angle - delta0;
+    const Real alpha_0_max = n0_angle + delta0;
+    
+    // The angle from the start point to end point against x axis
+    // alpha cannot be less than this obviously
+    const Real alpha_inf4 = atan(dif(UpIdx) / width);
+    
+    // Subtracting PI essentially inverts the cone which puts the normal
+    // in line with the parabola trajectory
+    Real alpha_imp_min = n1_angle - M_PI - delta1;
+    Real alpha_imp_max = n1_angle - M_PI + delta1;
+    
+    if (n1_angle < 0) {
+      alpha_imp_min = n1_angle + M_PI - delta1;
+      alpha_imp_max = n1_angle + M_PI + delta1;
+    }
+    
+    Real alpha_lim_minus;
+    Real alpha_lim_plus;
+    std::tie(alpha_lim_minus, alpha_lim_plus, ok) = TestSecondConstraint(width, dif(UpIdx));
+    if (!ok) {
+      return result;
+    }
+    
+    Real alpha_imp_minus;
+    Real alpha_imp_plus;
+    std::tie(alpha_imp_minus, alpha_imp_plus, ok) = TestSixthConstraint(width, dif(UpIdx));
+    if (!ok) {
+      return result;
+    }
+    
+    Real alpha_imp_inf;
+    Real alpha_imp_sup;
+    std::tie(alpha_imp_inf, alpha_imp_sup, ok) = TestThirdConstraint(width, dif(UpIdx), alpha_imp_min, alpha_imp_max, n1_angle);
+    if (!ok) {
+      return result;
+    }
+    
+    Real alpha_inf_bound = 0;
+    Real alpha_sup_bound = 0;
+    
+    /* Define alpha_0 interval satisfying constraints */
+    if (n1_angle > 0) {
+      alpha_lim_minus = std::max(alpha_lim_minus, alpha_imp_minus);
+      alpha_lim_plus = std::min(alpha_lim_plus, alpha_imp_plus);
+      
+      alpha_inf_bound = std::max(
+        {alpha_imp_inf, alpha_lim_minus, alpha_0_min, alpha_inf4 + alpha_});
+      
+      if (alpha_imp_min < -M_PI / 2) { // alpha_imp_sup is not defined
+        alpha_sup_bound = std::min({alpha_0_max, alpha_lim_plus, M_PI / 2});
+      } else { // alpha_imp_sup is defined
+        alpha_sup_bound = std::min(
+          {alpha_0_max, M_PI / 2, alpha_lim_plus, alpha_imp_sup});
+      }
+    } else { // down oriented cone
+      if (alpha_imp_max < M_PI / 2) {
+        alpha_lim_minus = std::max(alpha_lim_minus, alpha_imp_minus);
+        alpha_inf_bound = std::max(std::max(alpha_imp_inf, alpha_lim_minus),
+          std::max(alpha_0_min, alpha_inf4 + alpha_));
+      } else {// alpha_imp_max >= M_PI/2 so alpha_imp_inf inaccurate
+        alpha_lim_minus = std::max(alpha_lim_minus, alpha_imp_minus);
+        alpha_inf_bound = std::max(std::max(alpha_0_min, alpha_inf4 + alpha_),
+          alpha_lim_minus);
+      }
+      
+      alpha_lim_plus = std::min(alpha_lim_plus, alpha_imp_plus);
+      alpha_sup_bound = std::min(std::min(alpha_0_max, M_PI / 2),
+        std::min(alpha_lim_plus, alpha_imp_sup));
+    }
+    
+    if (alpha_inf_bound > alpha_sup_bound) {
+      // constraints intersection is empty
+      return result;
+    }
+    
+    Real alpha = 0.5 * (alpha_inf_bound + alpha_sup_bound);
+    auto coefs = ParabolaPath::ComputeCoefficients(
+      gravity_, alpha, theta, width, up_offset, x_theta0, p0(UpIdx));
+    auto coefs_inf = ParabolaPath::ComputeCoefficients(
+      gravity_, alpha_inf_bound, theta, width, up_offset, x_theta0, p0(UpIdx));
+    
+    bool max_height_respected = IsMaxHeightRespected(coefs_inf, x_theta0, x_theta1);
+    if (!max_height_respected) {
+      // Path is out of bounds
+      return result;
+    }
+    
+    // not sure why
+    max_height_respected = IsMaxHeightRespected(coefs, x_theta0, x_theta1);
+    
+    bool has_collisions = true;
+    RealRangeDichotomy dichotomy(alpha_inf_bound, alpha_sup_bound, search_limit_);
+    for (auto& alpha : dichotomy) {
+      coefs = ParabolaPath::ComputeCoefficients(
+        gravity_, alpha, theta, width, up_offset, x_theta0, p0(UpIdx));
+      max_height_respected = IsMaxHeightRespected(coefs, x_theta0, x_theta1);
+      const Real length = ParabolaPath::ComputeLength(p0, p1, coefs);
+      std::unique_ptr<ParabolaPath> path(new ParabolaPath(p0, p1, length, coefs));
+      
+      // Do collision check
+      has_collisions = false;
+      
+      if (!has_collisions && max_height_respected) {
+        return path;
+      }
+    }
+
+    return result;
+  }
+  
+  static inline Real ComputeHalfConeAngle(Real friction)
+  {
+    return atan(friction);
+  }
+  
+  
+private:
+  
+  
+  inline bool IsNormalVertical(const Eigen::Ref<const Vector3>& n) const
   {
     // This calculation doesn't appear to be based on any particular metric. It
     // should return true for any very vertical cone which allows it to skip
     // one of the constraint checks.
-    return 1000.0 * (n(0) * n(0) + n(depth_index_) * n(depth_index_)) <=
-      n(up_index_) * n(up_index_);
+    return 1000.0 * (n(0) * n(0) + n(InIdx) * n(InIdx)) <=
+      n(UpIdx) * n(UpIdx);
   }
   
   bool IsMaxHeightRespected(
@@ -310,13 +397,13 @@ private:
     
     if (width > 0) {
       return std::make_tuple(
-        atan(0.5 * (-b + sqrt(delta)) / a),
-        atan(0.5 * (-b - sqrt(delta)) / a), true);
+        atan(0.5 * (-b - sqrt(delta)) / a),
+        atan(0.5 * (-b + sqrt(delta)) / a), true);
     }
     
     return std::make_tuple(
-      atan(0.5 * (-b + sqrt(delta)) / a) + M_PI,
-      atan(0.5 * (-b - sqrt(delta)) / a) + M_PI, true);
+      atan(0.5 * (-b - sqrt(delta)) / a) + M_PI,
+      atan(0.5 * (-b + sqrt(delta)) / a) + M_PI, true);
   }
   
   std::tuple<Real, Real, bool> TestThirdConstraint(
@@ -330,8 +417,8 @@ private:
       if (n1_angle > 0) {
         if (alpha_imp_max > -M_PI / 2) {
           return std::make_tuple(
-            atan(-tan(alpha_imp_min) + 2 * up_offset / width),
-            atan(-tan(alpha_imp_max) + 2 * up_offset / width), true);
+            atan(-tan(alpha_imp_max) + 2 * up_offset / width), // inf
+            atan(-tan(alpha_imp_min) + 2 * up_offset / width), true); // sup
         }
         
         return std::make_tuple(0.0, 0.0, false);
@@ -339,8 +426,8 @@ private:
       
       if (alpha_imp_min < M_PI / 2) {
         return std::make_tuple(
-          atan(-tan(alpha_imp_min) + 2 * up_offset / width),
-          atan(-tan(alpha_imp_max) + 2 * up_offset / width), true);
+          atan(-tan(alpha_imp_max) + 2 * up_offset / width), // inf
+          atan(-tan(alpha_imp_min) + 2 * up_offset / width), true); // sup
       }
       
       return std::make_tuple(0.0, 0.0, false);
@@ -349,8 +436,8 @@ private:
     // X < 0   // TODO: cases n2_angle > 0 or < 0 (2D only)
     if (alpha_imp_min < -M_PI / 2) {
       return std::make_tuple(
-        atan(-tan(alpha_imp_min) + 2 * up_offset / width) + M_PI,
-        atan(-tan(alpha_imp_max) + 2 * up_offset / width) + M_PI, true);
+        atan(-tan(alpha_imp_max) + 2 * up_offset / width) + M_PI, // inf
+        atan(-tan(alpha_imp_min) + 2 * up_offset / width) + M_PI, true); //sup
     }
     
     return std::make_tuple(0.0, 0.0, false);
@@ -372,18 +459,18 @@ private:
     
     if (width > 0) {
       return std::make_tuple(
-        atan(0.5 * (-b + sqrt(delta)) / a),
-        atan(0.5 * (-b - sqrt(delta)) / a), true);
+        atan(0.5 * (-b - sqrt(delta)) / a),
+        atan(0.5 * (-b + sqrt(delta)) / a), true);
     }
     
     return std::make_tuple(
-      atan(0.5 * (-b + sqrt(delta)) / a) + M_PI,
-      atan(0.5 * (-b - sqrt(delta)) / a) + M_PI, true);
+      atan(0.5 * (-b - sqrt(delta)) / a) + M_PI,
+      atan(0.5 * (-b + sqrt(delta)) / a) + M_PI, true);
   }
   
   std::pair<Real, bool> TestConePlaneIntersection(
-    const Eigen::Ref<Vector3>& p, // point
-    const Eigen::Ref<Vector3>& n, // normal
+    const Eigen::Ref<const Vector3>& p, // point
+    const Eigen::Ref<const Vector3>& n, // normal
     Real mu, // coefficient of friction
     Real theta, // angle of vertical plane
     int num) const
@@ -391,8 +478,8 @@ private:
     const Real phi = atan(mu); // Coefficient of friction (half friction cone angle)
     const Real mu_sq = mu * mu;
     const Real u = n(0);
-    const Real v = n(depth_index_);
-    const Real w = n(up_index_);
+    const Real v = n(InIdx);
+    const Real w = n(UpIdx);
 
     const Real denom_k = u * u + v * v - w * w * mu_sq;
     
@@ -529,8 +616,6 @@ private:
   Real alpha_;
   Real max_height_;
   std::size_t search_limit_;
-  const Eigen::Index up_index_;
-  const Eigen::Index depth_index_;
 };
 
 } // namespace hsim

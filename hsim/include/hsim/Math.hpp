@@ -20,6 +20,10 @@ typedef Eigen::Transform<Real, 3, Eigen::Isometry> Transform;
 typedef Eigen::Transform<Real, 3, Eigen::Affine> AffineTransform;
 typedef Eigen::Transform<Real, 3, Eigen::Projective> ProjectionTransform;
 
+constexpr Eigen::Index RtIdx = 0;
+constexpr Eigen::Index UpIdx = 1;
+constexpr Eigen::Index InIdx = 2;
+
 void ToGLMatrix(const Transform& transform, float *out);
 
 struct Ray {
