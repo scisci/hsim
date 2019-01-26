@@ -10,6 +10,7 @@
 
 #include "hsim/Math.hpp"
 #include "hsim/Geometry.hpp"
+#include "hsim/PxEngine.hpp"
 
 namespace hsim {
 
@@ -27,19 +28,36 @@ private:
 };
 */
 
-class RayCastQuery {
+class RaycastQuery {
 public:
+  RaycastQuery();
+  
   typedef std::size_t ObjectID;
   
   struct Result {
-    ObjectID object_id;
-    Vector3 point;
+    ObjectID id;
+    Vector3 position;
   };
   
   ObjectID Add(const Geometry& geom, const Transform& transform);
   
   std::vector<Result> Query(const Ray& ray);
 
+private:
+  struct Object {
+    ObjectID id;
+    physx::PxGeometryHolder px_geom;
+    physx::PxTransform px_transform;
+  };
+  
+  struct Hit {
+    physx::PxRaycastHit hit;
+    const Object *object;
+  };
+  
+  ObjectID id_;
+  std::vector<Object> objects_;
+  std::vector<Hit> hits_;
 };
 
 } // namespace hsim

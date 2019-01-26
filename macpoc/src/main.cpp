@@ -18,6 +18,7 @@
 #include "FileUtils.hpp"
 #include "hsim/ParabolaMotionValidator.hpp"
 
+
 #define RENDER_SNIPPET
 
 
@@ -75,7 +76,7 @@ struct ConeTest {
     hsim::Real cone_height = 0.1;
     hsim::Real cone_radius = tan(phi) * cone_height;
     
-    hsim::Vector3 cone1_pos(-3.0, 0.0, 0.0);
+    hsim::Vector3 cone1_pos(0.25, 0.0, 0.25);
     hsim::Vector3 cone1_up(0.0, 1.0, 0.0);
     hsim::Vector3 cone2_pos(-2.0, 2.0, 0.0);
     hsim::Vector3 cone2_up(0.0, 1.0, 0.0);
@@ -214,10 +215,12 @@ void idleCallback()
 
 void renderCallback()
 {
+/*
   hsim::IterationStatus status = sIteration->Step();
   if (status == hsim::IterationStatus::kFailed) {
     sIteration->Next();
   }
+  */
   
   Snippets::startRender(sCamera->getEye(), sCamera->getDir());
 
@@ -263,6 +266,8 @@ void renderLoop()
   sEngine = new hsim::PxEngine();
   sIteration.reset(new hsim::Iteration(*sEngine));
   sIteration->Next();
+  
+  sIteration->Intersect();
   
   
   sCamera = new Snippets::Camera(physx::PxVec3(2.0f, 1.0f, 5.0f), physx::PxVec3(-1.0f, -1.0f, -1.0f));

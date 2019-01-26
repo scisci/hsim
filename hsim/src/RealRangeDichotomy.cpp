@@ -12,21 +12,21 @@ namespace hsim {
 
 RealRangeDichotomyIterator::RealRangeDichotomyIterator(
   const RealRangeDichotomy& range)
-  : range_(range),
+  : value_((range.min_ + range.max_) / 2.0),
     level_(0),
     level_step_(0),
     num_level_steps_(1),
-    value_((range.min_ + range.max_) / 2.0)
-{}
+    range_(range)
+  {}
 
 RealRangeDichotomyIterator::RealRangeDichotomyIterator(
   const RealRangeDichotomy& range, std::size_t max_steps)
-  : range_(range),
+  : value_(0.0),
     level_(log2(max_steps + 1)),
     level_step_(0),
     num_level_steps_(0),
-    value_(0.0)
-{}
+    range_(range)
+  {}
   
 bool RealRangeDichotomyIterator::operator!=(const RealRangeDichotomyIterator& other)
 {

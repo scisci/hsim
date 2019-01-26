@@ -11,6 +11,7 @@
 
 #include "hsim/Tess.hpp"
 
+#include "hsim/Collision.hpp"
 
 #include <memory>
 #include <iostream>
@@ -154,6 +155,27 @@ public:
     auto result = builder.Build();
     
     simulation_->AddActor(*result.get());
+  }
+  
+  void Intersect()
+  {
+    if (actor_->Type() != kRigidDynamic && actor_->Type() != kRigidStatic) {
+      return;
+    }
+    
+    // Perform intersection
+    hsim::RaycastQuery query;
+    const RigidBody& rigid_body = static_cast<const RigidBody&>(*actor_.get());
+    for (const auto& shape : rigid_body.Shapes()) {
+      Transform transform = rigid_body.Transform() * shape->Transform();
+      auto id = query.Add(shape->Geometry(), transform);
+    }
+    Ray ray(Vector3(0.25, 6, 0.25), Vector3(0.25, 0, 0.25));
+    auto results = query.Query(ray);
+    for (auto& result : results) {
+      std::cout << "Got intersection on object " << result.id << " at " <<
+        result.position.x() << ", " << result.position.y() << ", " << result.position.z() << std::endl;
+    }
   }
   
   IterationStatus Step()

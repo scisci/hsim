@@ -3,15 +3,6 @@ cmake_policy(SET CMP0003 NEW) # something about paths
 
 project(macpoc)
 
-#PhysX
-set(TARGET_BUILD_PLATFORM mac)
-set(PX_OUTPUT_ARCH x86)
-
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DNDEBUG")
-
-add_subdirectory(${PHYSX_ROOT_DIR}/source/compiler/cmake ${CMAKE_CURRENT_BINARY_DIR}/physx_bin)
-
 # PhysX Render Helpers
 FIND_PACKAGE(OpenGL REQUIRED)
 FIND_PACKAGE(GLUT REQUIRED)
