@@ -78,6 +78,42 @@ public:
     physics_(physics)
   {}
   
+  static physx::PxGeometryHolder CreateGeometry(const Geometry& geometry)
+  {
+    physx::PxGeometryHolder holder;
+    
+    switch (geometry.Type()) {
+      case kBox:
+      {
+        const Box& box = static_cast<const Box&>(geometry);
+        holder.storeAny(physx::PxBoxGeometry(box.Width() * 0.5, box.Height() * 0.5, box.Depth() * 0.5));
+      }
+      break;
+      case kSphere:
+      {
+        const Sphere& sphere = static_cast<const Sphere&>(geometry);
+        holder.storeAny(physx::PxSphereGeometry(sphere.Radius()));
+      }
+      break;
+      default:
+        assert(false);
+    }
+    
+    return holder;
+  }
+  
+  static physx::PxTransform CreateTransform(const hsim::Transform& transform)
+  {
+    // TODO: might be able to do this faster by creating a
+    // quaternion and a translation
+    float values[16];
+    const hsim::Transform::MatrixType& matrix = transform.matrix();
+    for (int i = 0; i < 16; i++) {
+      values[i] = matrix(i);
+    }
+    return physx::PxTransform(physx::PxMat44(values));
+  }
+  
   PxLookup<Material, physx::PxMaterial> materials;
 private:
   physx::PxPhysics *physics_;
@@ -503,22 +539,19 @@ private:
   }
   physx::PxTransform ConvertTransform(const hsim::Transform& transform)
   {
-    float values[16];
-    const hsim::Transform::MatrixType& matrix = transform.matrix();
-    for (int i = 0; i < 16; i++) {
-      values[i] = matrix(i);
-    }
-    return physx::PxTransform(physx::PxMat44(values));
+    return PxFactory::CreateTransform(transform);
   }
   
   physx::PxShape* CreateShape(const Shape& shape, const Actor& handle)
   {
-    physx::PxShape *px_shape = nullptr;
     
-    const Geometry& geometry = shape.Geometry();
+    //const Geometry& geometry = shape.Geometry();
     std::shared_ptr<const Material> material = shape.Material();
     physx::PxMaterial *px_material = factory_.materials.FindOrInsert(material.get(), handle);
     
+    physx::PxGeometryHolder holder = PxFactory::CreateGeometry(shape.Geometry());
+    physx::PxShape *px_shape = physics_->createShape(holder.any(), *px_material);
+    /*
     switch (geometry.Type()) {
       case kBox:
       {
@@ -539,7 +572,7 @@ private:
       default:
         assert(false);
     }
-    
+    */
     px_shape->setLocalPose(ConvertTransform(shape.Transform()));
     return px_shape;
   }
@@ -598,6 +631,8 @@ public:
     
     return std::unique_ptr<PxSimulation>(new PxSimulation(physics_, scene_desc));
   }
+  
+  
   
 
 private:

@@ -386,6 +386,17 @@ private:
   
   std::tuple<Real, Real, bool> TestSecondConstraint(Real width, Real up_offset) const
   {
+    // parabola dist = 2v^2 * (sin(alpha)cos(alpha)) / g
+    // dist = 2v^2 * (.5 sin(2alpha)) / g
+    // Since we know maximum is at alpha == 45deg then
+    // dist = 2v^2 * .5 / g
+    // dist = v^2 / g
+    
+    // This uses quadratic formula
+    // x = (-b +- sqrt(b^2 - 4ac)) / 2a
+    // to solve for tan(alpha)
+    // if discriminant is < 0 there is no solution
+    
     const Real a = gravity_ * width * width;
     const Real b = -2 * width * vel0_max_ * vel0_max_;
     const Real c = gravity_ * width * width + 2 * up_offset * vel0_max_ * vel0_max_;

@@ -65,16 +65,19 @@ struct ConeTest {
   ConeTest()
   {
     hsim::Real friction = 1.2;
-    hsim::Real max_height = 7.0;
-    hsim::Real max_vel = sqrt(max_height * 9.81);
+    hsim::Real max_range = 7.0;
+    hsim::Real max_height = 2.5;
+    hsim::Real max_vel_range = sqrt(max_range * 9.81);
+    hsim::Real max_vel_height = sqrt(max_height * 2 * 9.81);
+    hsim::Real max_vel = max_vel_height;
     hsim::ParabolaMotionValidator validator(max_vel, friction);
     hsim::Real phi = hsim::ParabolaMotionValidator::ComputeHalfConeAngle(1.2);
     hsim::Real cone_height = 0.1;
     hsim::Real cone_radius = tan(phi) * cone_height;
     
-    hsim::Vector3 cone1_pos(-3.0, 4.0, 0.0);
+    hsim::Vector3 cone1_pos(-3.0, 0.0, 0.0);
     hsim::Vector3 cone1_up(0.0, 1.0, 0.0);
-    hsim::Vector3 cone2_pos(-1.0, 2.0, 0.0);
+    hsim::Vector3 cone2_pos(-2.0, 2.0, 0.0);
     hsim::Vector3 cone2_up(0.0, 1.0, 0.0);
     
     hsim::RigidBodyBuilder builder;
