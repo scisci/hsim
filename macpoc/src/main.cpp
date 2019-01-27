@@ -215,12 +215,12 @@ void idleCallback()
 
 void renderCallback()
 {
-/*
+
   hsim::IterationStatus status = sIteration->Step();
   if (status == hsim::IterationStatus::kFailed) {
     sIteration->Next();
   }
-  */
+  
   
   Snippets::startRender(sCamera->getEye(), sCamera->getDir());
 

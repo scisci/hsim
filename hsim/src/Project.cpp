@@ -131,6 +131,8 @@ std::unique_ptr<Actor> Project::CreateActor(const htree::Tree& tree, const htree
         htree::AlignedBoxDepth(box))),
       density,
       transform);
+    
+    
   }
   
   return builder.Build();

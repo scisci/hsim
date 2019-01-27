@@ -214,11 +214,111 @@ public:
     
     TesselationBuilder builder;
     
+    Vector3 units[] = {
+      Vector3::UnitX(),
+      Vector3::UnitY(),
+      Vector3::UnitZ()
+    };
+    
     for (const auto& shape : rigid_actor.Shapes()) {
       const Geometry& geometry = shape->Geometry();
       switch (geometry.Type()) {
         case kBox:
-          builder.Add(static_cast<const Box&>(geometry), shape->Transform());
+        {
+          const Box& box = static_cast<const Box&>(geometry);
+          //builder.Add(box, shape->Transform());
+          
+          Real inset = 0.0025; // half cm
+          Real depth = 0.0025;
+          
+          Vector3 orig_sizes(box.Width(), box.Height(), box.Depth());
+ 
+          for (int i = 0; i < 3; ++i) {
+            size_t width_index, height_index;
+            switch (i) {
+              case 0:
+                width_index = 2;
+                height_index = 1;
+                break;
+              case 1:
+                width_index = 0;
+                height_index = 2;
+                break;
+              case 2:
+                width_index = 0;
+                height_index = 1;
+                break;
+            }
+            
+            
+            Vector3 width_vec = units[width_index];
+            Vector3 height_vec = units[height_index];
+            Vector3 depth_vec = units[i];
+            Real width = orig_sizes(width_index);
+            Real height = orig_sizes(height_index);
+            Real d = orig_sizes(i);
+            
+            std::vector<Vector3> points(8);
+            points[0] = -width/2 * width_vec - height/2 * height_vec;
+            points[1] = width/2 * width_vec - height/2 * height_vec;
+            points[2] = width/2 * width_vec + height/2 * height_vec;
+            points[3] = -width/2 * width_vec + height/2 * height_vec;
+            points[4] = -(width/2 - inset) * width_vec - (height/2 - inset) * height_vec;
+            points[5] = (width/2 - inset) * width_vec - (height/2 - inset) * height_vec;
+            points[6] = (width/2 - inset) * width_vec + (height/2 - inset) * height_vec;
+            points[7] = -(width/2 - inset) * width_vec + (height/2 - inset) * height_vec;
+            
+            std::vector<std::size_t> indices = {
+              0, 1, 4, 4, 1, 5, 5, 1, 2, 5, 2, 6, 6, 2, 3, 6, 3, 7,
+              3, 0, 7, 7, 0, 4, 4, 5, 7, 7, 5, 6};
+            
+            std::vector<Vector3> points_back = points;
+            for (int j = 0; j < 8; ++j) {
+              Real amt = (d / 2 + (j > 3 ? depth : 0));
+              if (i == 2) {
+                amt *= -1; // this was necessary because z axis is negative in, not sure, but fixed normals
+              }
+              points[j] += amt * depth_vec;
+              points_back[j] -= amt * depth_vec;
+              
+              points[j] = shape->Transform() * points[j];
+              points_back[j] = shape->Transform() * points_back[j];
+            }
+            
+            
+            builder.Add(points_back, indices);
+            // Flip clockwise for normals
+            std::reverse(indices.begin(), indices.end());
+            builder.Add(points, indices);
+            
+            
+          /*
+            std::vector<Vector3> outer(4);
+            outer[0] =
+            
+            Vector3 sizes = orig_sizes;
+            sizes(0) -= inset;
+            sizes(1) -= inset;
+            sizes(2) -= inset;
+            sizes(i) = depth;
+            
+            //sizes(i) = depth;
+            
+            Vector3 trans(0, 0, 0);
+            trans(i) = orig_sizes(i) / 2 + depth / 2;
+          
+            Transform t1 = shape->Transform();
+            t1.translation() += trans;
+            
+            Transform t2 = shape->Transform();
+            t2.translation() -= trans;
+            
+            Box box1(sizes(0), sizes(1), sizes(2));
+            builder.Add(box1, t1);
+            builder.Add(box1, t2);
+            */
+          }
+        }
           break;
         default:
           // Only boxes work for now

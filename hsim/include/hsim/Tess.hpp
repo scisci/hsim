@@ -103,6 +103,20 @@ public:
     tesselation_.objects.clear();
   }
   
+  void Add(const std::vector<Vector3>& vertices, const std::vector<std::size_t> indices)
+  {
+    TesselationVertexList object(indices.size());
+    for (size_t i = 0; i < object.size(); ++i) {
+      object[i] = vertices[indices[i]];
+    }
+    
+    tesselation_.objects.push_back(object);
+  }
+  
+  
+  
+
+  
   void Add(const Box& box, const Transform& transform)
   {
     const Real half_width = box.Width() / 2.0;
@@ -111,7 +125,7 @@ public:
     
     // Calculate vertices for front face and back face, clockwise start
     // top left.
-    const Vector3 vertices[] = {
+    std::vector<Vector3> vertices = {
       transform * Vector3(-half_width, half_height,-half_depth), // ftl
       transform * Vector3( half_width, half_height,-half_depth), // ftr
       transform * Vector3( half_width,-half_height,-half_depth), // fbr
@@ -128,7 +142,7 @@ public:
     // |/      |/
     // 3 - - - 2
     
-    const int indices[] = {
+    std::vector<std::size_t> indices = {
       0, 1, 3, 1, 2, 3, // front
       3, 2, 7, 2, 6, 7, // bottom
       4, 5, 0, 5, 1, 0, // top
@@ -137,12 +151,7 @@ public:
       1, 5, 2, 5, 6, 2};
     
     // 6 Faces
-    TesselationVertexList object(sizeof(indices) / sizeof(int));
-    for (size_t i = 0; i < object.size(); ++i) {
-      object[i] = vertices[indices[i]];
-    }
-    
-    tesselation_.objects.push_back(object);
+    Add(vertices, indices);
   }
   
   const Tesselation& Tesselation() const
