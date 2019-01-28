@@ -27,16 +27,11 @@ constexpr Eigen::Index InIdx = 2;
 void ToGLMatrix(const Transform& transform, float *out);
 
 struct Ray {
-  Ray(const Vector3& start, const Vector3& end)
+  Ray(const Eigen::Ref<const Vector3>& start, const Eigen::Ref<const Vector3>& end)
   : start(start),
     end(end)
   {}
-  
-  Ray(const Vector4& start, const Vector4& end)
-  : start(start.x(), start.y(), start.z()),
-    end(end.x(), end.y(), end.z())
-  {}
-  
+
   Vector3 PointAtDistance(Real dist)
   {
     return start + (end - start).normalized() * dist;

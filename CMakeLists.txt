@@ -1,14 +1,13 @@
 cmake_minimum_required(VERSION 3.12)
 project(hsimall)
 
-set(PLATFORM AUTO CACHE STRING "Build platform")
-set_property(CACHE PLATFORM PROPERTY STRINGS mac ios android)
+option(MACOS "build for macos" ON)
 
 #enable_testing()
 set(BUILD_TESTS_DEFAULT OFF) # Turn off htree tests
 
 
-if(PLATFORM STREQUAL "mac")
+if(MACOS)
   # MacOS sandbox utilties, only need this for macos but eh
   # This is above c++ compile options since it is objective c
   add_subdirectory(extern/MacSandboxUtilities)
@@ -26,7 +25,7 @@ set(ENV{PM_CMakeModules_PATH} "${PHYSX_ROOT_DIR}/../externals/cmakemodules")
 set(CMAKE_PREFIX_PATH "${PHYSX_ROOT_DIR}/../externals/opengl-linux")
 
 #PhysX
-if(TARGET_BUILD_PLATFORM STREQUAL "mac")
+if(MACOS)
   set(TARGET_BUILD_PLATFORM mac)
   set(PX_OUTPUT_ARCH x86)
 endif()

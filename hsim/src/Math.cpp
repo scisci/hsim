@@ -99,7 +99,7 @@ Ray CastRayFor2DCoords(
   Vector4 ray_end = mvpw * end;
   ray_start /= ray_start.w();
   ray_end /= ray_end.w();
-  return Ray(ray_start, ray_end);
+  return Ray(ray_start.head<3>(), ray_end.head<3>());
 }
 
 

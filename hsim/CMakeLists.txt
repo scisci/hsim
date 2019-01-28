@@ -15,7 +15,7 @@ target_include_directories(hsim PUBLIC ${Boost_INCLUDE_DIRS})
 
 target_link_libraries(hsim
     PUBLIC
-        htree
+        htree PhysX PhysXExtensions PhysXCharacterKinematic
     PRIVATE
         Boost::boost
 )

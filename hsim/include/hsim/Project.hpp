@@ -170,19 +170,56 @@ public:
       Transform transform = rigid_body.Transform() * shape->Transform();
       auto id = query.Add(shape->Geometry(), transform);
     }
-    Ray ray(Vector3(0.25, 6, 0.25), Vector3(0.25, 0, 0.25));
-    auto results = query.Query(ray);
-    for (auto& result : results) {
-      std::cout << "Got intersection on object " << result.id << " at " <<
-        result.position.x() << ", " << result.position.y() << ", " << result.position.z() << std::endl;
+    
+    // Grab the bounding box for the actor
+    auto sample_space = RigidActor::BoundingBox(rigid_body, rigid_body.Transform());
+    // Expand the box slightly to give starting space around it
+    Vector3 expand(0.25, 0.0, 0.25);
+    sample_space.min() -= Vector3(0.25, 0.0, 0.25);
+    sample_space.max() += Vector3(0.25, 0.25, 0.25);
+    
+    hsim::RaycastQuerySampler sampler(query, sample_space, UpIdx, -1, 1);
+    
+    
+    RigidBodyBuilder builder;
+    
+    
+    auto result = builder.Build();
+    
+    simulation_->AddActor(*result.get());
+    
+    for (int i = 0; i < 128; ++i) {
+      auto result = sampler.Sample();
+      if (!result.second) {
+        std::cout << "Failed to sample" << std::endl;
+      } else {
+        //std::cout << "Sampled at " <<
+        //result.first.x() << ", " << result.first.y() << ", " << result.first.z() << std::endl;
+        
+        Transform transform = Transform::Identity();
+        transform.translation() = result.first + Vector3(0, 0.025, 0);
+        builder.AddShape(std::unique_ptr<Sphere>(new Sphere(0.05)), 1000.0, transform);
+        
+        result = sampler.SampleNear(result.first, 0.05);
+        if (!result.second) {
+          std::cout << "Failed to sample near" << std::endl;
+        } else {
+          //std::cout << "Sampled near " <<
+          //result.first.x() << ", " << result.first.y() << ", " << result.first.z() << std::endl;
+        }
+      }
+
     }
+    
+    auto actor = builder.Build();
+    simulation_->AddActor(*actor.get());
   }
   
   IterationStatus Step()
   {
     float dt = 1.0f / 60.0f;
     sim_time_ += dt;
-    simulation_->Step(dt);
+    //simulation_->Step(dt);
     
     //character_->Move(Vector3(0.005, -9.8f / 60.0f, 0));
     

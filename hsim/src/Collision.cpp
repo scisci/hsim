@@ -28,7 +28,7 @@ RaycastQuery::ObjectID RaycastQuery::Add(const Geometry& geom, const Transform& 
   return id_;
 }
   
-std::vector<RaycastQuery::Result> RaycastQuery::Query(const Ray& ray)
+std::vector<RaycastQuery::Result> RaycastQuery::Query(const Ray& ray) const
 {
   std::vector<RaycastQuery::Result> results;
   

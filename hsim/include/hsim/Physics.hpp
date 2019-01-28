@@ -81,7 +81,22 @@ class RigidActor : public Actor {
 public:
   virtual ~RigidActor() {}
   virtual const std::vector<std::unique_ptr<Shape>>& Shapes() const = 0;
+  
+  static Eigen::AlignedBox<Real, 3> BoundingBox(
+    const RigidActor& actor,
+    const Transform& transform)
+  {
+    Eigen::AlignedBox<Real, 3> box;
+    for (auto& shape : actor.Shapes()) {
+      Transform t = transform * shape->Transform();
+      Eigen::AlignedBox<Real, 3> geom_box = shape->Geometry().BoundingBox();
+      box.extend(t * geom_box.min());
+      box.extend(t * geom_box.max());
+    }
+    return box;
+  }
 };
+
 
 
 class RigidBody : public RigidActor {

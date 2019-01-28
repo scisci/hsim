@@ -18,6 +18,7 @@ class Geometry {
 public:
   virtual ~Geometry() {}
   virtual GeometryType Type() const = 0;
+  virtual Eigen::AlignedBox<Real, 3> BoundingBox() const = 0;
 };
 
 
@@ -31,10 +32,17 @@ public:
   }
   
   virtual GeometryType Type() const { return GeometryType::kBox; }
+  virtual Eigen::AlignedBox<Real, 3> BoundingBox() const
+  {
+    return Eigen::AlignedBox<Real, 3>(
+      Vector3(-sizes_[0] / 2, -sizes_[1] / 2, -sizes_[2] / 2),
+      Vector3(sizes_[0] / 2, sizes_[1] / 2, sizes_[2] / 2));
+  }
   
   Real Width() const { return sizes_[0]; }
   Real Height() const { return sizes_[1]; }
   Real Depth() const { return sizes_[2]; }
+  
 
 private:
   Real sizes_[3];
@@ -48,6 +56,13 @@ public:
   {}
   
   virtual GeometryType Type() const { return GeometryType::kSphere; }
+  virtual Eigen::AlignedBox<Real, 3> BoundingBox() const
+  {
+    return Eigen::AlignedBox<Real, 3>(
+      Vector3(-radius_, -radius_, -radius_),
+      Vector3(radius_, radius_, radius_));
+  }
+  
   Real Radius() const { return radius_; }
 
 private:
@@ -62,6 +77,12 @@ public:
   {}
   
   virtual GeometryType Type() const { return GeometryType::kCone; }
+  virtual Eigen::AlignedBox<Real, 3> BoundingBox() const
+  {
+    return Eigen::AlignedBox<Real, 3>(
+      Vector3(-radius_, 0, -radius_),
+      Vector3(radius_, height_, radius_));
+  }
   Real Radius() const { return radius_; }
   Real Height() const { return height_; }
 

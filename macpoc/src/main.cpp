@@ -11,8 +11,6 @@
 #include "hsim/Project.hpp"
 #include "hsim/Math.hpp"
 
-#include "hsim/RealRangeDichotomy.hpp"
-
 #include "hsim/PxEngine.hpp"
 
 #include "FileUtils.hpp"
@@ -290,10 +288,6 @@ void renderLoop()
 
 int main(int argc, char *argv[])
 {
-  hsim::RealRangeDichotomy d(10.0, 110.0, 10);
-  for (auto& part : d) {
-    std::cout << part;
-  }
 
 #ifdef RENDER_SNIPPET
   renderLoop();
