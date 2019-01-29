@@ -211,6 +211,10 @@ public:
       if (!result.second) {
         std::cout << "Failed to sample" << std::endl;
       } else {
+        if (collision.CheckCollision(result.first)) {
+          // It intersected
+          continue;
+        }
         //std::cout << "Sampled at " <<
         //result.first.x() << ", " << result.first.y() << ", " << result.first.z() << std::endl;
         samples.push_back(result.first);

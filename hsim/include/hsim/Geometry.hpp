@@ -18,7 +18,8 @@ class Geometry {
 public:
   virtual ~Geometry() {}
   virtual GeometryType Type() const = 0;
-  virtual Eigen::AlignedBox<Real, 3> BoundingBox() const = 0;
+  virtual AlignedBox BoundingBox() const = 0;
+  virtual std::unique_ptr<Geometry> Expand(Real offset) const = 0;
 };
 
 
@@ -26,26 +27,32 @@ class Box : public Geometry {
 public:
   Box(Real width, Real height, Real depth)
   {
-    sizes_[0] = width;
-    sizes_[1] = height;
-    sizes_[2] = depth;
+    half_sizes_[0] = width / 2;
+    half_sizes_[1] = height / 2;
+    half_sizes_[2] = depth / 2;
   }
   
   virtual GeometryType Type() const { return GeometryType::kBox; }
-  virtual Eigen::AlignedBox<Real, 3> BoundingBox() const
+  virtual AlignedBox BoundingBox() const
   {
-    return Eigen::AlignedBox<Real, 3>(
-      Vector3(-sizes_[0] / 2, -sizes_[1] / 2, -sizes_[2] / 2),
-      Vector3(sizes_[0] / 2, sizes_[1] / 2, sizes_[2] / 2));
+    return AlignedBox(
+      Vector3(-half_sizes_[0], -half_sizes_[1], -half_sizes_[2]),
+      Vector3(half_sizes_[0], half_sizes_[1], half_sizes_[2]));
   }
   
-  Real Width() const { return sizes_[0]; }
-  Real Height() const { return sizes_[1]; }
-  Real Depth() const { return sizes_[2]; }
+  virtual std::unique_ptr<Geometry> Expand(Real offset) const
+  {
+    return std::unique_ptr<Geometry>(new Box(
+      Width() + offset * 2, Height() + offset * 2, Depth() + offset * 2));
+  }
+  
+  Real Width() const { return half_sizes_[0] * 2; }
+  Real Height() const { return half_sizes_[1] * 2; }
+  Real Depth() const { return half_sizes_[2] * 2; }
   
 
 private:
-  Real sizes_[3];
+  Real half_sizes_[3];
 };
 
 
@@ -56,11 +63,15 @@ public:
   {}
   
   virtual GeometryType Type() const { return GeometryType::kSphere; }
-  virtual Eigen::AlignedBox<Real, 3> BoundingBox() const
+  virtual AlignedBox BoundingBox() const
   {
-    return Eigen::AlignedBox<Real, 3>(
+    return AlignedBox(
       Vector3(-radius_, -radius_, -radius_),
       Vector3(radius_, radius_, radius_));
+  }
+  virtual std::unique_ptr<Geometry> Expand(Real offset) const
+  {
+    return std::unique_ptr<Geometry>(new Sphere(radius_ + offset));
   }
   
   Real Radius() const { return radius_; }
@@ -73,22 +84,27 @@ class Cone : public Geometry {
 public:
   Cone(Real radius, Real height)
   : radius_(radius),
-    height_(height)
+    half_height_(height / 2)
   {}
   
   virtual GeometryType Type() const { return GeometryType::kCone; }
-  virtual Eigen::AlignedBox<Real, 3> BoundingBox() const
+  virtual AlignedBox BoundingBox() const
   {
-    return Eigen::AlignedBox<Real, 3>(
-      Vector3(-radius_, 0, -radius_),
-      Vector3(radius_, height_, radius_));
+    return AlignedBox(
+      Vector3(-radius_, -half_height_, -radius_),
+      Vector3(radius_, half_height_, radius_));
+  }
+  virtual std::unique_ptr<Geometry> Expand(Real offset) const
+  {
+    return std::unique_ptr<Geometry>(new Cone(
+      radius_ + offset, Height() + offset * 2));
   }
   Real Radius() const { return radius_; }
-  Real Height() const { return height_; }
+  Real Height() const { return half_height_ * 2; }
 
 private:
   Real radius_;
-  Real height_;
+  Real half_height_;
 };
 
 class MassProperties {

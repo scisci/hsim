@@ -195,14 +195,19 @@ private:
 class DiscreteMotionPathCollisionDetector : public MotionPathCollisionDetector {
 public:
   DiscreteMotionPathCollisionDetector(const Environment& environment, const RigidBody& robot, Real max_step_size)
-  : environment_(&environment),
-    robot_(&robot),
-    max_step_size_(max_step_size)
+  : contact_offset_(0.001),
+    max_step_size_(max_step_size),
+    environment_(&environment),
+    robot_(&robot)
   {
     if (!robot.Shapes().empty()) {
       const auto& shape = robot.Shapes()[0];
       
-      robot_geom_ = PxFactory::CreateGeometry(shape->Geometry());
+      // Inset the geometry by a contact offset so that we don't get overlaps
+      // if its almost touching
+      auto collision_geom = shape->Geometry().Expand(-contact_offset_);
+      
+      robot_geom_ = PxFactory::CreateGeometry(*collision_geom.get());
       robot_tf_ = PxFactory::CreateTransform(shape->Transform());
       
       // Make sure foot is aligned to path
@@ -211,6 +216,30 @@ public:
     } else {
       assert(0);
     }
+  }
+  
+  bool CheckCollision(const Eigen::Ref<const Vector3>& pos) const
+  {
+    physx::PxTransform tf = robot_tf_;
+    tf.p += robot_shift_ + physx::PxVec3(pos.x(), pos.y(), pos.z());
+    
+    const std::vector<const Environment::Object> objects = environment_->Objects();
+    //physx::PxVec3 dir;
+    //physx::PxF32 depth;
+    for (auto it = objects.begin(); it != objects.end(); ++it) {
+      if (physx::PxGeometryQuery::overlap(
+          robot_geom_.any(), tf, it->px_geom.any(), it->px_transform)) {
+        return true;
+      }
+      /*
+      if (physx::PxGeometryQuery::computePenetration(
+          dir, depth, robot_geom_.any(), tf, it->px_geom.any(), it->px_transform)) {
+        if (depth > 0.001) {
+          return true;
+        }
+      }*/
+    }
+    return false;
   }
  
   bool CheckCollision(const MotionPath& path) const
@@ -231,9 +260,17 @@ public:
         tf.p = p + physx::PxVec3(pos.x(), pos.y(), pos.z());
         if (physx::PxGeometryQuery::overlap(
           robot_geom_.any(), tf, it->px_geom.any(), it->px_transform)) {
-          physx::PxGeometryQuery::overlap(
-          robot_geom_.any(), tf, it->px_geom.any(), it->px_transform);
+          /*
+          physx::PxVec3 dir;
+          physx::PxF32 depth;
+          if (physx::PxGeometryQuery::computePenetration(
+            dir, depth, robot_geom_.any(), tf, it->px_geom.any(), it->px_transform)) {
+              if (depth > 0.001) {
+                return true;
+              }
+          }*/
           return true;
+
         }
       }
     }
@@ -242,6 +279,7 @@ public:
   }
   
 private:
+  Real contact_offset_;
   Real max_step_size_;
   const Environment *environment_;
   const RigidBody *robot_;
