@@ -63,6 +63,7 @@ namespace
 struct ConeTest {
   ConeTest()
   {
+    /*
     hsim::Real friction = 1.2;
     hsim::Real max_range = 7.0;
     hsim::Real max_height = 2.5;
@@ -115,6 +116,7 @@ struct ConeTest {
       hsim::Real other = atan2(dif(1), dif(0));
       std::cout << "Angle is " << angle << " min is " << min << std::endl;
     }
+    */
   }
   
   std::unique_ptr<hsim::RigidBody> cone1;
@@ -234,15 +236,15 @@ void renderCallback()
   
   glBegin(GL_LINE_STRIP);
   
-  for (auto& vertex : cone_test.curve) {
+  for (auto& vertex : sIteration->curve) {
     glVertex3f(vertex.x(), vertex.y(), vertex.z());
   }
 
 glEnd();
   
   
-  Snippets::renderActor(*cone_test.cone1.get());
-  Snippets::renderActor(*cone_test.cone2.get());
+  //Snippets::renderActor(*cone_test.cone1.get());
+  //Snippets::renderActor(*cone_test.cone2.get());
   
   
   // Render the cone path

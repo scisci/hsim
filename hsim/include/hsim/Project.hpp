@@ -9,6 +9,8 @@
 #include "htree/RegionIterator.hpp"
 #include "htree/EdgePathAttributer.hpp"
 
+#include "hsim/ParabolaMotionValidator.hpp"
+
 #include "hsim/Tess.hpp"
 
 #include "hsim/Collision.hpp"
@@ -68,6 +70,8 @@ public:
     character_ = simulation_->AddCharacter(0.1, 0.5);
     character_->SetPosition(Vector3(-10.0, 0.0, 0.0));
   }
+  
+  std::vector<hsim::Vector3> curve;
   
   void Retry()
   {
@@ -163,12 +167,17 @@ public:
       return;
     }
     
+    RigidBodyBuilder catbuilder;
+    catbuilder.AddShape(std::unique_ptr<Sphere>(new Sphere(0.125)), 1000.0, Transform::Identity());
+    auto cat = catbuilder.Build();
+    
     // Perform intersection
-    hsim::RaycastQuery query;
+    Environment environment;
+    //hsim::RaycastQuery query;
     const RigidBody& rigid_body = static_cast<const RigidBody&>(*actor_.get());
     for (const auto& shape : rigid_body.Shapes()) {
       Transform transform = rigid_body.Transform() * shape->Transform();
-      auto id = query.Add(shape->Geometry(), transform);
+      auto id = environment.AddObstacle(shape->Geometry(), transform);
     }
     
     // Grab the bounding box for the actor
@@ -178,8 +187,16 @@ public:
     sample_space.min() -= Vector3(0.25, 0.0, 0.25);
     sample_space.max() += Vector3(0.25, 0.25, 0.25);
     
+    hsim::RaycastQuery query(environment);
     hsim::RaycastQuerySampler sampler(query, sample_space, UpIdx, -1, 1);
+    // Step size set to 5 cm
+    hsim::DiscreteMotionPathCollisionDetector collision(environment, *cat.get(), 0.05);
     
+    hsim::Real max_height = 2.5;
+    hsim::Real max_vel_height = sqrt(max_height * 2 * 9.81);
+    hsim::Real max_vel = max_vel_height;
+    hsim::Real friction = 1.2;
+    hsim::ParabolaMotionValidator steer(collision, max_vel, friction);
     
     RigidBodyBuilder builder;
     
@@ -188,18 +205,21 @@ public:
     
     simulation_->AddActor(*result.get());
     
-    for (int i = 0; i < 128; ++i) {
+    std::vector<Vector3> samples;
+    for (int i = 0; i < 20; ++i) {
       auto result = sampler.Sample();
       if (!result.second) {
         std::cout << "Failed to sample" << std::endl;
       } else {
         //std::cout << "Sampled at " <<
         //result.first.x() << ", " << result.first.y() << ", " << result.first.z() << std::endl;
+        samples.push_back(result.first);
         
         Transform transform = Transform::Identity();
-        transform.translation() = result.first + Vector3(0, 0.025, 0);
-        builder.AddShape(std::unique_ptr<Sphere>(new Sphere(0.05)), 1000.0, transform);
+        transform.translation() = result.first + Vector3(0, 0.125, 0);
+        builder.AddShape(std::unique_ptr<Sphere>(new Sphere(0.125)), 1000.0, transform);
         
+        /*
         result = sampler.SampleNear(result.first, 0.05);
         if (!result.second) {
           std::cout << "Failed to sample near" << std::endl;
@@ -207,12 +227,35 @@ public:
           //std::cout << "Sampled near " <<
           //result.first.x() << ", " << result.first.y() << ", " << result.first.z() << std::endl;
         }
+        */
       }
 
     }
     
+    // Choose a start point
+    curve.clear();
+    
+    for (int i = 0; i < samples.size(); i++) {
+      auto start = samples[i];
+
+      for (int j = i + 1; j < samples.size(); ++j) {
+        auto end = samples[j];
+        auto path = steer.ComputePath(start, Vector3(0, 1, 0), end, Vector3(0, 1, 0));
+        if (path != nullptr) {
+          // successful path
+          int num_points = 20;
+          hsim::Real length = path->Length();
+          
+          for (int p = 0; p <= 20; ++p) {
+            curve.push_back(path->Compute(p * length/20.0) + Vector3(0, 0.25, 0));
+          }
+        }
+      }
+    }
+    
     auto actor = builder.Build();
     simulation_->AddActor(*actor.get());
+    //simulation_->AddActor(*cat.get());
   }
   
   IterationStatus Step()

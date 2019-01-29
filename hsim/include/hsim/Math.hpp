@@ -20,6 +20,8 @@ typedef Eigen::Transform<Real, 3, Eigen::Isometry> Transform;
 typedef Eigen::Transform<Real, 3, Eigen::Affine> AffineTransform;
 typedef Eigen::Transform<Real, 3, Eigen::Projective> ProjectionTransform;
 
+typedef Eigen::AlignedBox<Real, 3> AlignedBox;
+
 constexpr Eigen::Index RtIdx = 0;
 constexpr Eigen::Index UpIdx = 1;
 constexpr Eigen::Index InIdx = 2;

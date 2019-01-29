@@ -82,16 +82,22 @@ public:
   virtual ~RigidActor() {}
   virtual const std::vector<std::unique_ptr<Shape>>& Shapes() const = 0;
   
-  static Eigen::AlignedBox<Real, 3> BoundingBox(
+  static AlignedBox BoundingBox(
     const RigidActor& actor,
     const Transform& transform)
   {
-    Eigen::AlignedBox<Real, 3> box;
+    AlignedBox box;
     for (auto& shape : actor.Shapes()) {
-      Transform t = transform * shape->Transform();
-      Eigen::AlignedBox<Real, 3> geom_box = shape->Geometry().BoundingBox();
-      box.extend(t * geom_box.min());
-      box.extend(t * geom_box.max());
+      auto t = transform * shape->Transform();
+      AlignedBox geom_box = shape->Geometry().BoundingBox();
+      box.extend(t * geom_box.corner(AlignedBox::CornerType::TopLeftFloor));
+      box.extend(t * geom_box.corner(AlignedBox::CornerType::TopRightFloor));
+      box.extend(t * geom_box.corner(AlignedBox::CornerType::BottomRightFloor));
+      box.extend(t * geom_box.corner(AlignedBox::CornerType::BottomLeftFloor));
+      box.extend(t * geom_box.corner(AlignedBox::CornerType::TopLeftCeil));
+      box.extend(t * geom_box.corner(AlignedBox::CornerType::TopRightCeil));
+      box.extend(t * geom_box.corner(AlignedBox::CornerType::BottomRightCeil));
+      box.extend(t * geom_box.corner(AlignedBox::CornerType::BottomLeftCeil));
     }
     return box;
   }

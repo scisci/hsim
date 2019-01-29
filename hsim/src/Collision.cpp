@@ -11,13 +11,11 @@
 namespace hsim {
 
 
-RaycastQuery::RaycastQuery()
-: id_(0)
-{
-}
+Environment::Environment()
+:id_(0)
+{}
 
-
-RaycastQuery::ObjectID RaycastQuery::Add(const Geometry& geom, const Transform& transform)
+Environment::ObjectID Environment::AddObstacle(const Geometry& geom, const Transform& transform)
 {
   objects_.push_back({
     .id = ++id_,
@@ -28,6 +26,14 @@ RaycastQuery::ObjectID RaycastQuery::Add(const Geometry& geom, const Transform& 
   return id_;
 }
   
+
+RaycastQuery::RaycastQuery(const Environment& environment)
+: environment_(&environment)
+{
+}
+
+
+
 std::vector<RaycastQuery::Result> RaycastQuery::Query(const Ray& ray) const
 {
   std::vector<RaycastQuery::Result> results;
@@ -42,8 +48,9 @@ std::vector<RaycastQuery::Result> RaycastQuery::Query(const Ray& ray) const
   physx::PxRaycastHit hit;
   
   hits_.clear();
-  for (auto it = objects_.begin(); it != objects_.end(); ++it) {
-    const Object& object = *it;
+  const std::vector<const Environment::Object> objects = environment_->Objects();
+  for (auto it = objects.begin(); it != objects.end(); ++it) {
+    const Environment::Object& object = *it;
     
     std::size_t num_hits = physx::PxGeometryQuery::raycast(
       origin,

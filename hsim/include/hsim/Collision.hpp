@@ -11,6 +11,7 @@
 #include "hsim/Math.hpp"
 #include "hsim/Geometry.hpp"
 #include "hsim/PxEngine.hpp"
+#include "hsim/MotionPath.hpp"
 
 #include <random>
 
@@ -39,38 +40,56 @@ private:
 // 5. If any parabolas connect, then add edge
 // 6. Check to see if goal is connected
 
-class RaycastQuery {
+
+
+class Environment {
 public:
-  RaycastQuery();
-  
   typedef std::size_t ObjectID;
   
-  struct Result {
-    ObjectID id;
-    Vector3 position;
-  };
-  
-  ObjectID Add(const Geometry& geom, const Transform& transform);
-  
-  std::vector<Result> Query(const Ray& ray) const;
-
-private:
   struct Object {
     ObjectID id;
     physx::PxGeometryHolder px_geom;
     physx::PxTransform px_transform;
   };
   
-  struct Hit {
-    physx::PxRaycastHit hit;
-    const Object *object;
+  Environment();
+  
+  ObjectID AddObstacle(const Geometry& geom, const Transform& transform);
+  
+  const std::vector<const Object>& Objects() const
+  {
+    return objects_;
+  }
+  
+private:
+  ObjectID id_;
+  std::vector<const Object> objects_;
+};
+class RaycastQuery {
+public:
+  RaycastQuery(const Environment& environment);
+  
+  
+  struct Result {
+    Environment::ObjectID id;
+    Vector3 position;
   };
   
-  ObjectID id_;
-  std::vector<Object> objects_;
+  
+  std::vector<Result> Query(const Ray& ray) const;
+
+private:
+  
+  
+  struct Hit {
+    physx::PxRaycastHit hit;
+    const Environment::Object *object;
+  };
+  
   
   //! Only used to store hits so we don't have to allocate memory each time (not thread safe)
   mutable std::vector<Hit> hits_;
+  const Environment *environment_;
 };
 
 class RaycastQuerySampler {
@@ -169,6 +188,66 @@ private:
   Real ray_dist_;
   std::mt19937_64 rng_;
   
+};
+
+
+
+class DiscreteMotionPathCollisionDetector : public MotionPathCollisionDetector {
+public:
+  DiscreteMotionPathCollisionDetector(const Environment& environment, const RigidBody& robot, Real max_step_size)
+  : environment_(&environment),
+    robot_(&robot),
+    max_step_size_(max_step_size)
+  {
+    if (!robot.Shapes().empty()) {
+      const auto& shape = robot.Shapes()[0];
+      
+      robot_geom_ = PxFactory::CreateGeometry(shape->Geometry());
+      robot_tf_ = PxFactory::CreateTransform(shape->Transform());
+      
+      // Make sure foot is aligned to path
+      auto aabb = shape->Geometry().BoundingBox();
+      robot_shift_ = physx::PxVec3(0, aabb.sizes()[UpIdx] / 2, 0);
+    } else {
+      assert(0);
+    }
+  }
+ 
+  bool CheckCollision(const MotionPath& path) const
+  {
+    const Real length = path.Length();
+    const size_t num_steps = ceil(length / max_step_size_);
+    const Real step_size = length / num_steps;
+    
+    // Rotate robot along path?
+    physx::PxTransform tf = robot_tf_;
+    const physx::PxVec3 p = tf.p + robot_shift_;
+    
+    const std::vector<const Environment::Object> objects = environment_->Objects();
+    for (auto it = objects.begin(); it != objects.end(); ++it) {
+      // Don't go all the way to the end or we will collide with the target
+      for (size_t i = 1; i <= num_steps - 1; ++i) {
+        Vector3 pos = path.Compute(i * step_size);
+        tf.p = p + physx::PxVec3(pos.x(), pos.y(), pos.z());
+        if (physx::PxGeometryQuery::overlap(
+          robot_geom_.any(), tf, it->px_geom.any(), it->px_transform)) {
+          physx::PxGeometryQuery::overlap(
+          robot_geom_.any(), tf, it->px_geom.any(), it->px_transform);
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }
+  
+private:
+  Real max_step_size_;
+  const Environment *environment_;
+  const RigidBody *robot_;
+  physx::PxGeometryHolder robot_geom_;
+  physx::PxTransform robot_tf_;
+  physx::PxVec3 robot_shift_;
 };
 
 } // namespace hsim

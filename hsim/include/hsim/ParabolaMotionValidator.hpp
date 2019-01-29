@@ -10,10 +10,13 @@
 
 #include "hsim/Math.hpp"
 #include "hsim/RealRangeDichotomy.hpp"
+#include "hsim/MotionPath.hpp"
 
 namespace hsim {
 
-class ParabolaPath {
+
+
+class ParabolaPath : public MotionPath {
 public:
   //! coefs(0)^2 + coefs(1) + coefs(2) where coefs(3) = theta
   typedef Eigen::Matrix<Real, 4, 1> Coefs;
@@ -149,12 +152,12 @@ public:
     out(UpIdx) = coefs(0) * x_theta * x_theta + coefs(1) * x_theta + coefs(2);
   }
   
-  Real Length() const
+  virtual Real Length() const
   {
     return length_;
   }
   
-  Vector3 Compute(Real param) const
+  virtual Vector3 Compute(Real param) const
   {
     Vector3 result;
     ComputeParam(param, start_, end_, length_, coefs_, result);
@@ -182,14 +185,18 @@ private:
 
 class ParabolaMotionValidator {
 public:
-  ParabolaMotionValidator(Real vel_max, Real friction)
-  : gravity_(9.81),
-    vel0_max_(vel_max),
-    vel1_max_(vel_max),
-    friction_(friction),
-    alpha_(0.001),
-    max_height_(100.0),
-    search_limit_(7)
+  ParabolaMotionValidator(
+    const MotionPathCollisionDetector& collision,
+    Real vel_max,
+    Real friction)
+    : gravity_(9.81),
+      vel0_max_(vel_max),
+      vel1_max_(vel_max),
+      friction_(friction),
+      alpha_(0.001),
+      max_height_(100.0),
+      search_limit_(7),
+      collision_(&collision)
   {}
   
   std::unique_ptr<ParabolaPath> ComputePath(
@@ -339,8 +346,8 @@ public:
       std::unique_ptr<ParabolaPath> path(new ParabolaPath(p0, p1, length, coefs));
       
       // Do collision check
-      has_collisions = false;
-      
+      has_collisions = collision_->CheckCollision(*path.get());
+
       if (!has_collisions && max_height_respected) {
         return path;
       }
@@ -627,6 +634,7 @@ private:
   Real alpha_;
   Real max_height_;
   std::size_t search_limit_;
+  const MotionPathCollisionDetector *collision_;
 };
 
 } // namespace hsim
