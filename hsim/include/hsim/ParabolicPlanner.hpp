@@ -10,6 +10,7 @@
 
 #include "hsim/Math.hpp"
 #include "hsim/ParabolaMotionValidator.hpp"
+#include "hsim/Collision.hpp"
 
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
@@ -45,8 +46,11 @@ public:
       boost::property_map<Graph, boost::vertex_rank_t>::type,
       boost::property_map<Graph, boost::vertex_predecessor_t>::type>;
   
-  ParabolicPlanner(const ParabolaMotionValidator& motion_validator)
-  : motion_validator_(&motion_validator),
+  ParabolicPlanner(
+    Sampler* sampler,
+    const ParabolaMotionValidator& motion_validator)
+  : sampler_(sampler),
+    motion_validator_(&motion_validator),
     state_prop_(boost::get(vertex_state_t(), graph_)),
     path_prop_(boost::get(edge_path_t(), graph_)),
     disjoint_sets_(
@@ -64,17 +68,40 @@ public:
     start_verts_.push_back(start_vertex);
     goal_verts_.push_back(goal_vertex);
     
-    for (auto sit = start_verts_.begin(); sit != start_verts_.end(); ++sit) {
-      for (auto git = goal_verts_.begin(); git != goal_verts_.end(); ++git) {
-        if (boost::same_component(*sit, *git, disjoint_sets_)) {
-          std::cout << "done";
+    if (CheckSolution()) {
+      std::cout << "Already connected, quitting early..." << std::endl;
+      return;
+    }
+    
+    for (int i = 0; i < 100; ++i) {
+      auto result = sampler_->Sample();
+      if (result.second) {
+        AddMilestone(result.first);
+        
+        if (CheckSolution()) {
+          std::cout << "Found solution, done..." << std::endl;
+          return;
         }
       }
     }
     
+    std::cout << "No solution" << std::endl;
   }
 
 private:
+  bool CheckSolution()
+  {
+    for (auto sit = start_verts_.begin(); sit != start_verts_.end(); ++sit) {
+      for (auto git = goal_verts_.begin(); git != goal_verts_.end(); ++git) {
+        if (boost::same_component(*sit, *git, disjoint_sets_)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }
+  
   Vertex AddMilestone(const Eigen::Ref<const Vector3>& pos)
   {
     Vertex vert = boost::add_vertex(graph_);
@@ -102,6 +129,7 @@ private:
     return vert;
   }
   
+  Sampler *sampler_;
   const ParabolaMotionValidator *motion_validator_;
   
   Graph graph_;

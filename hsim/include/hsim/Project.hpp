@@ -199,7 +199,7 @@ public:
     hsim::Real max_vel = max_vel_height;
     hsim::Real friction = 1.2;
     hsim::ParabolaMotionValidator steer(collision, max_vel, friction);
-    hsim::ParabolicPlanner planner(steer);
+    hsim::ParabolicPlanner planner(&sampler, steer);
     
  
     RigidBodyBuilder builder;

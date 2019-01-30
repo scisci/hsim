@@ -92,7 +92,14 @@ private:
   const Environment *environment_;
 };
 
-class RaycastQuerySampler {
+class Sampler {
+public:
+  virtual ~Sampler() {}
+  virtual std::pair<Vector3, bool> Sample() = 0;
+  virtual std::pair<Vector3, bool> SampleNear(const Eigen::Ref<const Vector3>& sample, Real dist) = 0;
+};
+
+class RaycastQuerySampler : public Sampler {
 public:
   typedef Eigen::AlignedBox<Real, 3> SampleSpace;
   
@@ -110,12 +117,12 @@ public:
       rng_(seed)
   {}
   
-  std::pair<Vector3, bool> Sample()
+  virtual std::pair<Vector3, bool> Sample()
   {
     return SampleInternal(sample_space_, ray_dist_);
   }
   
-  std::pair<Vector3, bool> SampleNear(const Eigen::Ref<const Vector3>& sample, Real dist)
+  virtual std::pair<Vector3, bool> SampleNear(const Eigen::Ref<const Vector3>& sample, Real dist)
   {
     // Intersect the sample space
     Vector3 offset(dist, dist, dist);
