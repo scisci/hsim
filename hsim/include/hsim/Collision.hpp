@@ -224,20 +224,11 @@ public:
     tf.p += robot_shift_ + physx::PxVec3(pos.x(), pos.y(), pos.z());
     
     const std::vector<const Environment::Object> objects = environment_->Objects();
-    //physx::PxVec3 dir;
-    //physx::PxF32 depth;
     for (auto it = objects.begin(); it != objects.end(); ++it) {
       if (physx::PxGeometryQuery::overlap(
           robot_geom_.any(), tf, it->px_geom.any(), it->px_transform)) {
         return true;
       }
-      /*
-      if (physx::PxGeometryQuery::computePenetration(
-          dir, depth, robot_geom_.any(), tf, it->px_geom.any(), it->px_transform)) {
-        if (depth > 0.001) {
-          return true;
-        }
-      }*/
     }
     return false;
   }
@@ -254,23 +245,12 @@ public:
     
     const std::vector<const Environment::Object> objects = environment_->Objects();
     for (auto it = objects.begin(); it != objects.end(); ++it) {
-      // Don't go all the way to the end or we will collide with the target
       for (size_t i = 1; i <= num_steps - 1; ++i) {
         Vector3 pos = path.Compute(i * step_size);
         tf.p = p + physx::PxVec3(pos.x(), pos.y(), pos.z());
         if (physx::PxGeometryQuery::overlap(
           robot_geom_.any(), tf, it->px_geom.any(), it->px_transform)) {
-          /*
-          physx::PxVec3 dir;
-          physx::PxF32 depth;
-          if (physx::PxGeometryQuery::computePenetration(
-            dir, depth, robot_geom_.any(), tf, it->px_geom.any(), it->px_transform)) {
-              if (depth > 0.001) {
-                return true;
-              }
-          }*/
           return true;
-
         }
       }
     }

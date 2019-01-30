@@ -15,6 +15,8 @@
 
 #include "hsim/Collision.hpp"
 
+#include "hsim/ParabolicPlanner.hpp"
+
 #include <memory>
 #include <iostream>
 
@@ -197,7 +199,9 @@ public:
     hsim::Real max_vel = max_vel_height;
     hsim::Real friction = 1.2;
     hsim::ParabolaMotionValidator steer(collision, max_vel, friction);
+    hsim::ParabolicPlanner planner(steer);
     
+ 
     RigidBodyBuilder builder;
     
     
@@ -235,6 +239,9 @@ public:
       }
 
     }
+    
+    planner.Solve(samples[0], samples[1]);
+    
     
     // Choose a start point
     curve.clear();
