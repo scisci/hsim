@@ -234,13 +234,18 @@ void renderCallback()
     Snippets::renderActors(&actors[0], static_cast<physx::PxU32>(actors.size()), true);
   }
   
-  glBegin(GL_LINE_STRIP);
   
-  for (auto& vertex : sIteration->curve) {
-    glVertex3f(vertex.x(), vertex.y(), vertex.z());
+  for (auto& curve : sIteration->curves) {
+    glBegin(GL_LINE_STRIP);
+  
+    for (int i = curve.start_index; i < curve.end_index; ++i) {
+      auto& vertex = sIteration->curve_verts[i];
+      glVertex3f(vertex.x(), vertex.y(), vertex.z());
+    }
+    glEnd();
   }
 
-glEnd();
+
   
   
   //Snippets::renderActor(*cone_test.cone1.get());

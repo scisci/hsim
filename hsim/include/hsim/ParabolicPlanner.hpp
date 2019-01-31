@@ -71,6 +71,11 @@ public:
     for (auto it = goals.begin(); it != goals.end(); ++it) {
       goal_verts_.push_back(AddMilestone(*it));
     }
+    
+    if (start_verts_.empty() || goal_verts_.empty()) {
+      std::cout << "Unable to create path, missing start or goal." << std::endl;
+      return;
+    }
 
     if (CheckSolution()) {
       std::cout << "Already connected, quitting early..." << std::endl;
@@ -80,6 +85,10 @@ public:
     for (int i = 0; i < 100; ++i) {
       auto result = sampler_->Sample();
       if (result.second) {
+        if (!state_validator_->Validate(result.first)) {
+          continue;
+        }
+        
         AddMilestone(result.first);
         
         if (CheckSolution()) {

@@ -33,6 +33,10 @@ struct IterationResult {
 };
 
 
+struct Curve {
+  std::size_t start_index;
+  std::size_t end_index;
+};
 
 class Project {
 public:
@@ -74,7 +78,8 @@ public:
     character_->SetPosition(Vector3(-10.0, 0.0, 0.0));
   }
   
-  std::vector<hsim::Vector3> curve;
+  std::vector<Curve> curves;
+  std::vector<hsim::Vector3> curve_verts;
   
   void Retry()
   {
@@ -272,7 +277,7 @@ public:
     
     hsim::RaycastQuerySampler sampler(query, sample_space, UpIdx, -1, 1);
    
-    hsim::Real max_height = 2.5;
+    hsim::Real max_height = 1.5;
     hsim::Real max_vel_height = sqrt(max_height * 2 * 9.81);
     hsim::Real max_vel = max_vel_height;
     hsim::Real friction = 1.2;
@@ -295,8 +300,8 @@ public:
     auto paths = planner.Edges();
     
     // Choose a start point
-    curve.clear();
-    
+    curves.clear();
+    curve_verts.clear();
     
     
     for (int i = 0; i < samples.size(); i++) {
@@ -309,10 +314,13 @@ public:
       // successful path
       int num_points = 20;
       hsim::Real length = paths[i]->Length();
-  
+      Curve curve;
+      curve.start_index = curve_verts.size();
       for (int p = 0; p <= 20; ++p) {
-        curve.push_back(paths[i]->Compute(p * length/20.0) + Vector3(0, 0.25, 0));
+        curve_verts.push_back(paths[i]->Compute(p * length/20.0) + Vector3(0, 0.25, 0));
       }
+      curve.end_index = curve_verts.size();
+      curves.push_back(curve);
     }
     
     auto actor = builder.Build();
