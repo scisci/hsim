@@ -48,9 +48,11 @@ public:
   
   ParabolicPlanner(
     Sampler* sampler,
-    const ParabolaMotionValidator& motion_validator)
+    const ParabolaMotionValidator& motion_validator,
+    const StateValidator& state_validator)
   : sampler_(sampler),
     motion_validator_(&motion_validator),
+    state_validator_(&state_validator),
     state_prop_(boost::get(vertex_state_t(), graph_)),
     path_prop_(boost::get(edge_path_t(), graph_)),
     disjoint_sets_(
@@ -59,15 +61,17 @@ public:
   {}
   
   void Solve(
-    const Eigen::Ref<const Vector3>& start,
-    const Eigen::Ref<const Vector3>& goal)
+    const std::vector<Vector3>& starts,
+    const std::vector<Vector3>& goals)
   {
-    Vertex start_vertex = AddMilestone(start);
-    Vertex goal_vertex = AddMilestone(goal);
+    for (auto it = starts.begin(); it != starts.end(); ++it) {
+      start_verts_.push_back(AddMilestone(*it));
+    }
     
-    start_verts_.push_back(start_vertex);
-    goal_verts_.push_back(goal_vertex);
-    
+    for (auto it = goals.begin(); it != goals.end(); ++it) {
+      goal_verts_.push_back(AddMilestone(*it));
+    }
+
     if (CheckSolution()) {
       std::cout << "Already connected, quitting early..." << std::endl;
       return;
@@ -86,6 +90,24 @@ public:
     }
     
     std::cout << "No solution" << std::endl;
+  }
+  
+  std::vector<Vector3> Vertices() const
+  {
+    std::vector<Vector3> verts;
+    for (auto vert : boost::make_iterator_range(boost::vertices(graph_))) {
+      verts.push_back(state_prop_[vert]);
+    }
+    return verts;
+  }
+  
+  std::vector<const MotionPath*> Edges() const
+  {
+    std::vector<const MotionPath *> edges;
+    for (auto edge : boost::make_iterator_range(boost::edges(graph_))) {
+      edges.push_back(path_prop_[edge].get());
+    }
+    return edges;
   }
 
 private:
@@ -131,6 +153,7 @@ private:
   
   Sampler *sampler_;
   const ParabolaMotionValidator *motion_validator_;
+  const StateValidator *state_validator_;
   
   Graph graph_;
   std::vector<Vertex> start_verts_;

@@ -40,6 +40,13 @@ private:
 // 5. If any parabolas connect, then add edge
 // 6. Check to see if goal is connected
 
+class StateValidator {
+public:
+  virtual ~StateValidator() {}
+  virtual bool Validate(const Eigen::Ref<const Vector3>& state) const = 0;
+};
+
+
 
 
 class Environment {
@@ -273,6 +280,22 @@ private:
   physx::PxGeometryHolder robot_geom_;
   physx::PxTransform robot_tf_;
   physx::PxVec3 robot_shift_;
+};
+
+
+class CollisionStateValidator : public StateValidator {
+public:
+  CollisionStateValidator(const MotionPathCollisionDetector& collision)
+  : collision_(&collision)
+  {}
+  
+  virtual bool Validate(const Eigen::Ref<const Vector3>& state) const
+  {
+    return !collision_->CheckCollision(state);
+  }
+  
+private:
+  const MotionPathCollisionDetector *collision_;
 };
 
 } // namespace hsim

@@ -28,7 +28,16 @@ constexpr Eigen::Index InIdx = 2;
 
 void ToGLMatrix(const Transform& transform, float *out);
 
+AlignedBox TransformAlignedBox(
+    const AlignedBox& geom_box,
+    const Transform& t);
+
 struct Ray {
+  Ray()
+  : start(0, 0, 0),
+    end(0, 0, 0)
+  {}
+  
   Ray(const Eigen::Ref<const Vector3>& start, const Eigen::Ref<const Vector3>& end)
   : start(start),
     end(end)

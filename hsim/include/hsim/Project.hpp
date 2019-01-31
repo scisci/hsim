@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <iostream>
+#include <unordered_map>
 
 namespace hsim {
 
@@ -169,37 +170,115 @@ public:
       return;
     }
     
+    const Real cat_radius = 0.125;
+
     RigidBodyBuilder catbuilder;
-    catbuilder.AddShape(std::unique_ptr<Sphere>(new Sphere(0.125)), 1000.0, Transform::Identity());
+    catbuilder.AddShape(std::unique_ptr<Sphere>(new Sphere(cat_radius)), 1000.0, Transform::Identity());
     auto cat = catbuilder.Build();
     
     // Perform intersection
     Environment environment;
+
     //hsim::RaycastQuery query;
     const RigidBody& rigid_body = static_cast<const RigidBody&>(*actor_.get());
-    for (const auto& shape : rigid_body.Shapes()) {
-      Transform transform = rigid_body.Transform() * shape->Transform();
-      auto id = environment.AddObstacle(shape->Geometry(), transform);
-    }
+
     
     // Grab the bounding box for the actor
-    auto sample_space = RigidActor::BoundingBox(rigid_body, rigid_body.Transform());
+    AlignedBox sample_space = RigidActor::BoundingBox(
+      rigid_body, rigid_body.Transform());
+    
+    const Real grid_size = cat_radius * 2;
+    const Real goal_min_height = 1.5;
+    
+    std::unordered_map<Environment::ObjectID, const Shape*> goal_obstacles;
+    // Find the bounding box of the new space
+    for (auto& shape : rigid_body.Shapes()) {
+      Transform transform = rigid_body.Transform() * shape->Transform();
+      AlignedBox bbox = TransformAlignedBox(
+        shape->Geometry().BoundingBox(), transform);
+      
+      Environment::ObjectID id = environment.AddObstacle(
+        shape->Geometry(), transform);
+      if (bbox.max()(UpIdx) >= goal_min_height) {
+        auto sizes = bbox.sizes();
+        // Surface should be big enough to fit the object
+        if (sizes[RtIdx] >= grid_size && sizes[InIdx] >= grid_size) {
+          goal_obstacles.insert(std::make_pair(id, shape.get()));
+        }
+      }
+    }
+    
+    
     // Expand the box slightly to give starting space around it
     Vector3 expand(0.25, 0.0, 0.25);
     sample_space.min() -= Vector3(0.25, 0.0, 0.25);
     sample_space.max() += Vector3(0.25, 0.25, 0.25);
     
     hsim::RaycastQuery query(environment);
-    hsim::RaycastQuerySampler sampler(query, sample_space, UpIdx, -1, 1);
-    // Step size set to 5 cm
+     // Step size set to 5 cm
     hsim::DiscreteMotionPathCollisionDetector collision(environment, *cat.get(), 0.05);
     
+    std::vector<Vector3> all_goals;
+    // We can use the raycast query to find goals, each obstacle that is in
+    // the goal range we can attempt to find a point on it that is valid
+    // if so, its a goal point.
+    for (auto& goal_entry : goal_obstacles) {
+      const Shape *shape = goal_entry.second;
+      Transform transform = rigid_body.Transform() * shape->Transform();
+      AlignedBox bbox = TransformAlignedBox(
+        shape->Geometry().BoundingBox(), transform);
+      auto sizes = bbox.sizes();
+      std::size_t nx = sizes[RtIdx] / grid_size;
+      std::size_t ny = sizes[InIdx] / grid_size;
+      std::vector<Vector3> obs_goals;
+      const Real min_dist_sq = grid_size * 3 * grid_size * 3;
+      Ray ray;
+      for (size_t x = 0; x < nx; ++x) {
+        for (std::size_t y = 0; y < ny; ++y) {
+          Vector3 start = bbox.center();
+          start[RtIdx] += x * grid_size + grid_size / 2 - sizes[RtIdx] / 2;
+          start[InIdx] += y * grid_size + grid_size / 2 - sizes[InIdx] / 2;
+          start[UpIdx] = sample_space.max()[UpIdx];
+          
+          ray.start = start;
+          ray.end = start - Vector3::Unit(UpIdx) * (start[UpIdx] - goal_min_height);
+          
+          auto results = query.Query(ray);
+          for (auto& result : results) {
+            if (result.id == goal_entry.first) {
+              // Its successful
+              bool too_close = false;
+              for (auto& sample : obs_goals) {
+                if ((sample - result.position).squaredNorm() < min_dist_sq) {
+                  too_close = true;
+                  break;
+                }
+              }
+              
+              // Its a successful hit, lets do a penetration test
+              if (!too_close && !collision.CheckCollision(result.position)) {
+                obs_goals.push_back(result.position);
+              }
+              
+              break;
+            }
+          }
+        }
+      }
+      
+      all_goals.insert(all_goals.end(), obs_goals.begin(), obs_goals.end());
+    }
+    std::vector<Vector3> start = {sample_space.min() + Vector3(0.01, 0, 0.01)};
+    
+    hsim::RaycastQuerySampler sampler(query, sample_space, UpIdx, -1, 1);
+   
     hsim::Real max_height = 2.5;
     hsim::Real max_vel_height = sqrt(max_height * 2 * 9.81);
     hsim::Real max_vel = max_vel_height;
     hsim::Real friction = 1.2;
     hsim::ParabolaMotionValidator steer(collision, max_vel, friction);
-    hsim::ParabolicPlanner planner(&sampler, steer);
+    CollisionStateValidator validator(collision);
+    hsim::ParabolicPlanner planner(&sampler, steer, validator);
     
  
     RigidBodyBuilder builder;
@@ -209,58 +288,30 @@ public:
     
     simulation_->AddActor(*result.get());
     
-    std::vector<Vector3> samples;
-    for (int i = 0; i < 20; ++i) {
-      auto result = sampler.Sample();
-      if (!result.second) {
-        std::cout << "Failed to sample" << std::endl;
-      } else {
-        if (collision.CheckCollision(result.first)) {
-          // It intersected
-          continue;
-        }
-        //std::cout << "Sampled at " <<
-        //result.first.x() << ", " << result.first.y() << ", " << result.first.z() << std::endl;
-        samples.push_back(result.first);
-        
-        Transform transform = Transform::Identity();
-        transform.translation() = result.first + Vector3(0, 0.125, 0);
-        builder.AddShape(std::unique_ptr<Sphere>(new Sphere(0.125)), 1000.0, transform);
-        
-        /*
-        result = sampler.SampleNear(result.first, 0.05);
-        if (!result.second) {
-          std::cout << "Failed to sample near" << std::endl;
-        } else {
-          //std::cout << "Sampled near " <<
-          //result.first.x() << ", " << result.first.y() << ", " << result.first.z() << std::endl;
-        }
-        */
-      }
 
-    }
+    planner.Solve(start, all_goals);
     
-    planner.Solve(samples[0], samples[1]);
-    
+    auto samples = planner.Vertices();
+    auto paths = planner.Edges();
     
     // Choose a start point
     curve.clear();
     
+    
+    
     for (int i = 0; i < samples.size(); i++) {
-      auto start = samples[i];
-
-      for (int j = i + 1; j < samples.size(); ++j) {
-        auto end = samples[j];
-        auto path = steer.ComputePath(start, Vector3(0, 1, 0), end, Vector3(0, 1, 0));
-        if (path != nullptr) {
-          // successful path
-          int num_points = 20;
-          hsim::Real length = path->Length();
-          
-          for (int p = 0; p <= 20; ++p) {
-            curve.push_back(path->Compute(p * length/20.0) + Vector3(0, 0.25, 0));
-          }
-        }
+      Transform transform = Transform::Identity();
+      transform.translation() = samples[i] + Vector3(0, cat_radius, 0);
+      builder.AddShape(std::unique_ptr<Sphere>(new Sphere(cat_radius)), 1000.0, transform);
+    }
+    
+    for (int i = 0; i < paths.size(); ++i) {
+      // successful path
+      int num_points = 20;
+      hsim::Real length = paths[i]->Length();
+  
+      for (int p = 0; p <= 20; ++p) {
+        curve.push_back(paths[i]->Compute(p * length/20.0) + Vector3(0, 0.25, 0));
       }
     }
     

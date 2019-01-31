@@ -21,6 +21,20 @@ void ToGLMatrix(const Transform& transform, float *out)
   }
 }
 
+AlignedBox TransformAlignedBox(const AlignedBox& geom_box, const Transform& t)
+{
+  AlignedBox box;
+  box.extend(t * geom_box.corner(AlignedBox::CornerType::TopLeftFloor));
+  box.extend(t * geom_box.corner(AlignedBox::CornerType::TopRightFloor));
+  box.extend(t * geom_box.corner(AlignedBox::CornerType::BottomRightFloor));
+  box.extend(t * geom_box.corner(AlignedBox::CornerType::BottomLeftFloor));
+  box.extend(t * geom_box.corner(AlignedBox::CornerType::TopLeftCeil));
+  box.extend(t * geom_box.corner(AlignedBox::CornerType::TopRightCeil));
+  box.extend(t * geom_box.corner(AlignedBox::CornerType::BottomRightCeil));
+  box.extend(t * geom_box.corner(AlignedBox::CornerType::BottomLeftCeil));
+  return box;
+}
+
 Matrix4 CalcXYWHProjection(
   Real x,
   Real y,

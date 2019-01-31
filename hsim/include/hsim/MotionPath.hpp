@@ -45,6 +45,7 @@ private:
 class MotionPathCollisionDetector {
 public:
   virtual ~MotionPathCollisionDetector() {}
+  virtual bool CheckCollision(const Eigen::Ref<const Vector3>& pos) const = 0;
   virtual bool CheckCollision(const MotionPath& path) const = 0;
   
 };
