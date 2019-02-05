@@ -60,6 +60,9 @@ void keyPress(unsigned char key, const PxTransform& camera)
 namespace
 {
 
+static hsim::Handness handness = hsim::Handness::kLeft;
+  
+
 struct ConeTest {
   ConeTest()
   {
@@ -222,8 +225,22 @@ void renderCallback()
   }
   
   
-  Snippets::startRender(sCamera->getEye(), sCamera->getDir());
-
+  Snippets::startRender(sCamera->getEye(), sCamera->getDir(), 0.1f, 10000.0f, handness);
+  
+  // Draw axes
+  
+  glBegin(GL_LINES);
+  glColor4f(1.0, 0.0f, 0.0f, 1.0f);
+  glVertex3f(0.0, 0.0, 0.0);
+  glVertex3f(1.0, 0.0, 0.0);
+  glColor4f(0.0, 1.0f, 0.0f, 1.0f);
+  glVertex3f(0.0, 0.0, 0.0);
+  glVertex3f(0.0, 1.0, 0.0);
+  glColor4f(0.0, 0.0f, 1.0f, 1.0f);
+  glVertex3f(0.0, 0.0, 0.0);
+  glVertex3f(0.0, 0.0, 1.0);
+  glEnd();
+  
   physx::PxScene* scene;
   PxGetPhysics().getScenes(&scene,1);
   physx::PxU32 nbActors = scene->getNbActors(physx::PxActorTypeFlag::eRIGID_DYNAMIC | physx::PxActorTypeFlag::eRIGID_STATIC);
@@ -231,7 +248,7 @@ void renderCallback()
   {
     std::vector<physx::PxRigidActor*> actors(nbActors);
     scene->getActors(physx::PxActorTypeFlag::eRIGID_DYNAMIC | physx::PxActorTypeFlag::eRIGID_STATIC, reinterpret_cast<physx::PxActor**>(&actors[0]), nbActors);
-    Snippets::renderActors(&actors[0], static_cast<physx::PxU32>(actors.size()), true);
+    Snippets::renderActors(&actors[0], static_cast<physx::PxU32>(actors.size()), false);
   }
   
   
@@ -267,7 +284,7 @@ void exitCallback(void)
 void renderLoop()
 {
   
-
+  
   sEngine = new hsim::PxEngine();
   sIteration.reset(new hsim::Iteration(*sEngine));
   sIteration->Next();
@@ -275,10 +292,10 @@ void renderLoop()
   
   
   
-  sCamera = new Snippets::Camera(physx::PxVec3(2.0f, 1.0f, 5.0f), physx::PxVec3(-1.0f, -1.0f, -1.0f));
+  sCamera = new Snippets::Camera(physx::PxVec3(2.0f, 1.0f, 5.0f), physx::PxVec3(-1.0f, -1.0f, -1.0f), handness);
 
   Snippets::setupDefaultWindow("PhysX Snippet HelloWorld");
-  Snippets::setupDefaultRenderState();
+  Snippets::setupDefaultRenderState(handness);
 
   glutIdleFunc(idleCallback);
   glutDisplayFunc(renderCallback);

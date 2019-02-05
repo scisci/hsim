@@ -35,6 +35,7 @@
 #include "foundation/PxPreprocessor.h"
 
 #include "hsim/Physics.hpp"
+#include "hsim/Math.hpp"
 
 #if PX_WINDOWS
 #include <windows.h>
@@ -48,12 +49,13 @@
 #error platform not supported.
 #endif
 
+
 namespace Snippets
 {
 void setupDefaultWindow(const char* name);
-void setupDefaultRenderState();
+void setupDefaultRenderState(hsim::Handness handness);
 
-void startRender(const physx::PxVec3& cameraEye, const physx::PxVec3& cameraDir, physx::PxReal nearClip = 1.f, physx::PxReal farClip = 10000.f);
+void startRender(const physx::PxVec3& cameraEye, const physx::PxVec3& cameraDir, physx::PxReal nearClip, physx::PxReal farClip, hsim::Handness handness);
 void renderActors(physx::PxRigidActor** actors, const physx::PxU32 numActors, bool shadows = false, const physx::PxVec3 & color = physx::PxVec3(0.0f, 0.75f, 0.0f));
 void renderActor(const hsim::RigidBody& actor);
 void finishRender();

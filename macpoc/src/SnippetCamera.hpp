@@ -32,13 +32,14 @@
 #define PHYSX_SNIPPET_CAMERA_H
 
 #include "foundation/PxTransform.h"
+#include "hsim/Math.hpp"
 
 namespace Snippets
 {
 class Camera
 {
 public:
-	Camera(const physx::PxVec3 &eye, const physx::PxVec3& dir);
+	Camera(const physx::PxVec3 &eye, const physx::PxVec3& dir, hsim::Handness handness);
 
 	void				handleMouse(int button, int state, int x, int y);
 	bool				handleKey(unsigned char key, int x, int y, float speed = 1.0f);
@@ -53,6 +54,7 @@ private:
 	physx::PxVec3	mDir;
 	int				mMouseX;
 	int				mMouseY;
+ hsim::Handness mHandness;
 };
 
 

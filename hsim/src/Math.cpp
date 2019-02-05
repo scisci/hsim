@@ -21,6 +21,17 @@ void ToGLMatrix(const Transform& transform, float *out)
   }
 }
 
+void ToGLMatrix(const Matrix4& transform, float *out)
+{
+  if (std::is_same<Real, float>::value) {
+    memcpy(out, transform.data(), 16 * sizeof(float));
+  }
+  const Real *src = transform.data();
+  for (int i = 0; i < 16; i++) {
+    out[i] = src[i];
+  }
+}
+
 AlignedBox TransformAlignedBox(const AlignedBox& geom_box, const Transform& t)
 {
   AlignedBox box;
@@ -41,9 +52,10 @@ Matrix4 CalcXYWHProjection(
   Real width,
   Real height,
   Real znear,
-  Real zfar)
+  Real zfar,
+  Handness handness)
 {
-  const bool right_handed = true;
+  const bool right_handed = handness == kRight;
   
   const Real diff = zfar - znear;
   const Real aa = (zfar + znear) / diff;
@@ -65,16 +77,17 @@ Matrix4 CalcPerspectiveProjection(
   Real fovy,
   Real aspect,
   Real near,
-  Real far)
+  Real far,
+  Handness handness)
 {
   const Real height = 1.0 / tanf(fovy * M_PI / 360.0);
   const Real width = height * 1.0 / aspect;
-  return CalcXYWHProjection(0.0, 0.0, width, height, near, far);
+  return CalcXYWHProjection(0.0, 0.0, width, height, near, far, handness);
 }
 
-Matrix4 CalcViewMatrix(const Vector3& eye, const Vector3& at)
+Matrix4 CalcViewMatrix(const Vector3& eye, const Vector3& at, Handness handness)
 {
-  const bool right_handed = true;
+  const bool right_handed = handness == kRight;
   const Vector3 up(0.0, 1.0, 0.0);
   
   const Vector3 z_axis = (right_handed ? eye - at : at - eye).normalized();

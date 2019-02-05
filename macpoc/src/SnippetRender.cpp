@@ -267,7 +267,7 @@ void setupDefaultWindow(const char *name)
 	delete[] namestr;
 }
 
-void setupDefaultRenderState()
+void setupDefaultRenderState(hsim::Handness handness)
 {
 	// Setup default render states
 	glClearColor(0.3f, 0.4f, 0.5f, 1.0);
@@ -279,7 +279,7 @@ void setupDefaultRenderState()
 	PxReal ambientColor[]	= { 0.0f, 0.1f, 0.2f, 0.0f };
 	PxReal diffuseColor[]	= { 1.0f, 1.0f, 1.0f, 0.0f };		
 	PxReal specularColor[]	= { 0.0f, 0.0f, 0.0f, 0.0f };		
-	PxReal position[]		= { 100.0f, 100.0f, 400.0f, 1.0f };		
+	PxReal position[]		= { 20.0f, 20.0f, 20.0f, handness == hsim::kRight ? 1.0f : -1.0f };
 	glLightfv(GL_LIGHT0, GL_AMBIENT, ambientColor);
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseColor);
 	glLightfv(GL_LIGHT0, GL_SPECULAR, specularColor);
@@ -288,24 +288,44 @@ void setupDefaultRenderState()
 }
 
 
-void startRender(const PxVec3& cameraEye, const PxVec3& cameraDir, PxReal clipNear, PxReal clipFar)
+void startRender(const PxVec3& cameraEye, const PxVec3& cameraDir, PxReal clipNear, PxReal clipFar, hsim::Handness handness)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   float res[16];
+  
 	// Setup camera
 	glMatrixMode(GL_PROJECTION);
+ 
+  auto proj = hsim::CalcPerspectiveProjection(60.0, GLdouble(glutGet(GLUT_WINDOW_WIDTH)) / GLdouble(glutGet(GLUT_WINDOW_HEIGHT)), GLdouble(clipNear), GLdouble(clipFar), handness);
+  hsim::ToGLMatrix(proj, &res[0]);
+  
+  glLoadMatrixf(&res[0]);
+  
+  glFrontFace(handness == hsim::Handness::kRight ? GL_CCW : GL_CW);
+ /*
 	glLoadIdentity();
 	gluPerspective(60.0, GLdouble(glutGet(GLUT_WINDOW_WIDTH)) / GLdouble(glutGet(GLUT_WINDOW_HEIGHT)), GLdouble(clipNear), GLdouble(clipFar));
- 
+ */
+  
 //glGetFloatv(GL_PROJECTION_MATRIX, &res[0]);
 
 	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
+	
+ 
+  hsim::Vector3 camera_eye(cameraEye.x, cameraEye.y, cameraEye.z);
+  hsim::Vector3 camera_at = camera_eye + hsim::Vector3(cameraDir.x, cameraDir.y, cameraDir.z);
+  
+  auto view = hsim::CalcViewMatrix(camera_eye, camera_at, handness);
+  hsim::ToGLMatrix(view, &res[0]);
+  
+  glLoadMatrixf(&res[0]);
+  /*
+  glLoadIdentity();
 	gluLookAt(GLdouble(cameraEye.x), GLdouble(cameraEye.y), GLdouble(cameraEye.z), GLdouble(cameraEye.x + cameraDir.x), GLdouble(cameraEye.y + cameraDir.y), GLdouble(cameraEye.z + cameraDir.z), 0.0, 1.0, 0.0);
 
 
  glGetFloatv(GL_MODELVIEW_MATRIX, &res[0]);
-
+*/
 	glColor4f(0.4f, 0.4f, 0.4f, 1.0f);
 }
 
@@ -327,7 +347,7 @@ void renderActor(const hsim::RigidBody& actor)
     renderOtherGeometry(it->get()->Geometry());
     glPopMatrix();
 
-    if(true)
+    if(false)
       {
         const PxVec3 shadowDir(0.0f, -0.7071067f, -0.7071067f);
         const PxReal shadowMat[]={ 1,0,0,0, -shadowDir.x/shadowDir.y,0,-shadowDir.z/shadowDir.y,0, 0,0,1,0, 0,0,0,1 };

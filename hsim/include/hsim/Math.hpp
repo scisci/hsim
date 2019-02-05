@@ -26,7 +26,13 @@ constexpr Eigen::Index RtIdx = 0;
 constexpr Eigen::Index UpIdx = 1;
 constexpr Eigen::Index InIdx = 2;
 
+enum Handness {
+  kLeft,
+  kRight
+};
+
 void ToGLMatrix(const Transform& transform, float *out);
+void ToGLMatrix(const Matrix4& transform, float *out);
 
 AlignedBox TransformAlignedBox(
     const AlignedBox& geom_box,
@@ -58,10 +64,20 @@ Matrix4 CalcXYWHProjection(
   Real width,
   Real height,
   Real znear,
-  Real zfar);
+  Real zfar,
+  Handness handness=Handness::kRight);
 
-Matrix4 CalcPerspectiveProjection(Real fovy, Real aspect, Real near, Real far);
-Matrix4 CalcViewMatrix(const Vector3& eye, const Vector3& at);
+Matrix4 CalcPerspectiveProjection(
+  Real fovy,
+  Real aspect,
+  Real near,
+  Real far,
+  Handness handness=Handness::kRight);
+  
+Matrix4 CalcViewMatrix(
+  const Vector3& eye,
+  const Vector3& at,
+  Handness handness=Handness::kRight);
 
 Vector4 NormalizeDeviceCoords(
   Real x,
