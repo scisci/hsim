@@ -272,7 +272,7 @@ void renderLoop()
   sIteration.reset(new hsim::Iteration(*sEngine));
   sIteration->Next();
   
-  sIteration->Intersect();
+  
   
   
   sCamera = new Snippets::Camera(physx::PxVec3(2.0f, 1.0f, 5.0f), physx::PxVec3(-1.0f, -1.0f, -1.0f));

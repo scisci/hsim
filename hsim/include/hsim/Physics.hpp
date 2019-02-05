@@ -224,6 +224,13 @@ public:
       .kinetic_friction = 0.25}))
   {}
   
+  static std::unique_ptr<RigidBody> Build(std::unique_ptr<hsim::Geometry> geometry, Real density, const Transform& transform)
+  {
+    RigidBodyBuilder builder;
+    builder.AddShape(std::move(geometry), density, transform);
+    return builder.Build();
+  }
+  
   void AddShape(std::unique_ptr<hsim::Geometry> geometry, Real density, const Transform& transform)
   {
     Real volume = MassProperties::ComputeVolume(*geometry.get());

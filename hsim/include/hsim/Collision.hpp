@@ -63,6 +63,8 @@ public:
   
   ObjectID AddObstacle(const Geometry& geom, const Transform& transform);
   
+  void Clear();
+  
   const std::vector<const Object>& Objects() const
   {
     return objects_;
@@ -123,6 +125,12 @@ public:
       ray_dist_(sample_space_.sizes()[sample_axis]),
       rng_(seed)
   {}
+  
+  void SetSampleSpace(const SampleSpace& sample_space)
+  {
+    sample_space_ = sample_space;
+    ray_dist_ = sample_space_.sizes()[sample_axis_];
+  }
   
   virtual std::pair<Vector3, bool> Sample()
   {
@@ -208,14 +216,21 @@ private:
 
 class DiscreteMotionPathCollisionDetector : public MotionPathCollisionDetector {
 public:
-  DiscreteMotionPathCollisionDetector(const Environment& environment, const RigidBody& robot, Real max_step_size)
+  DiscreteMotionPathCollisionDetector(
+    const Environment& environment,
+    const RigidBody& body,
+    Real max_step_size)
   : contact_offset_(0.001),
     max_step_size_(max_step_size),
-    environment_(&environment),
-    robot_(&robot)
+    environment_(&environment)
   {
-    if (!robot.Shapes().empty()) {
-      const auto& shape = robot.Shapes()[0];
+    SetBody(body);
+  }
+  
+  void SetBody(const RigidBody& body)
+  {
+    if (!body.Shapes().empty()) {
+      const auto& shape = body.Shapes()[0];
       
       // Inset the geometry by a contact offset so that we don't get overlaps
       // if its almost touching
@@ -276,7 +291,6 @@ private:
   Real contact_offset_;
   Real max_step_size_;
   const Environment *environment_;
-  const RigidBody *robot_;
   physx::PxGeometryHolder robot_geom_;
   physx::PxTransform robot_tf_;
   physx::PxVec3 robot_shift_;

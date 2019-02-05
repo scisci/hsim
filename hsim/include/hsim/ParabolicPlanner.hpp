@@ -64,6 +64,10 @@ public:
     const std::vector<Vector3>& starts,
     const std::vector<Vector3>& goals)
   {
+    graph_.clear();
+    start_verts_.clear();
+    goal_verts_.clear();
+    
     for (auto it = starts.begin(); it != starts.end(); ++it) {
       start_verts_.push_back(AddMilestone(*it));
     }

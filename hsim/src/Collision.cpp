@@ -25,6 +25,12 @@ Environment::ObjectID Environment::AddObstacle(const Geometry& geom, const Trans
   
   return id_;
 }
+
+void Environment::Clear()
+{
+  objects_.clear();
+  id_ = 0;
+}
   
 
 RaycastQuery::RaycastQuery(const Environment& environment)
