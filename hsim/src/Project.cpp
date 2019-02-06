@@ -80,7 +80,7 @@ BoxCluster BuildGeometry(const htree::Tree& tree, const htree::StringNodeAttribu
 }
 */
 
-std::unique_ptr<Actor> Project::CreateActor(const htree::Tree& tree, const htree::StringNodeAttributes& attributes)
+std::unique_ptr<Actor> Project::CreateActor(const htree::Tree& tree, const htree::StringNodeAttributes& attributes, Handness handness)
 {
   Real height_meters = 2.0;
   Real scale = height_meters / 1.0;
@@ -123,6 +123,11 @@ std::unique_ptr<Actor> Project::CreateActor(const htree::Tree& tree, const htree
     const htree::AlignedBox& box = node_region.region.AlignedBox();
     Transform transform = Transform::Identity();
     transform.translation() = box.center();
+    
+    // Convert left handed to right handed
+    if (handness == kRight) {
+      transform.translation()[InIdx] = -transform.translation()[InIdx];
+    }
     
     builder.AddShape(std::unique_ptr<Geometry>(
       new Box(

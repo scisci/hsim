@@ -15,6 +15,10 @@
 namespace hsim {
 
 struct BoxPlanSorter {
+  BoxPlanSorter(Handness handness)
+  : handness_(handness)
+  {}
+  
   bool operator() (const AlignedBox& lhs, const AlignedBox& rhs) const
   {
     auto lhs_min = lhs.min();
@@ -31,7 +35,8 @@ struct BoxPlanSorter {
         if (lhs_min[RtIdx] < rhs_min[RtIdx]) {
           return true;
         } else if (lhs_min[RtIdx] == rhs_min[RtIdx]) {
-          if (lhs_min[InIdx] > rhs_min[InIdx]) {
+          if ((handness_ == Handness::kRight && lhs.max()[InIdx] > rhs.max()[InIdx]) ||
+              (handness_ == Handness::kLeft && lhs_min[InIdx] > rhs_min[InIdx])) {
             return true;
           }
         }
@@ -40,10 +45,17 @@ struct BoxPlanSorter {
     
     return false;
   }
+  
+private:
+  Handness handness_;
 };
 
 class PlanBuilder {
 public:
+  PlanBuilder(Handness handness)
+  :handness_(handness)
+  {}
+  
   void Build(const RigidBody& body)
   {
     // Visit each shape
@@ -67,7 +79,7 @@ public:
     std::cout << "we have " << boxes.size() << " boxes." << std::endl;
     // First sort the boxes
     std::vector<AlignedBox> sorted_boxes = boxes;
-    std::sort(sorted_boxes.begin(), sorted_boxes.end(), BoxPlanSorter());
+    std::sort(sorted_boxes.begin(), sorted_boxes.end(), BoxPlanSorter(handness_));
     
     // Find the neighbors of each box
     for (std::size_t i = 0; i < sorted_boxes.size(); ++i) {
@@ -83,26 +95,32 @@ public:
         }
         
         if (sorted_boxes[i].squaredExteriorDistance(sorted_boxes[j]) < 0.0000001) {
+        
+          
           auto imin = sorted_boxes[i].min();
           auto imax = sorted_boxes[i].max();
           auto jmin = sorted_boxes[j].min();
           auto jmax = sorted_boxes[j].max();
           AlignedBox intersection = sorted_boxes[i].intersection(sorted_boxes[j]);
           
+          Transform transform = Transform::Identity();
+          Vector3 corners[] = {
+            intersection.corner(AlignedBox::CornerType::TopLeftFloor),
+            intersection.corner(AlignedBox::CornerType::TopRightFloor),
+            intersection.corner(AlignedBox::CornerType::BottomRightFloor),
+            intersection.corner(AlignedBox::CornerType::BottomLeftFloor),
+            intersection.corner(AlignedBox::CornerType::TopLeftCeil),
+            intersection.corner(AlignedBox::CornerType::TopRightCeil),
+            intersection.corner(AlignedBox::CornerType::BottomRightCeil),
+            intersection.corner(AlignedBox::CornerType::BottomLeftCeil)
+          };
+          
           if (jmin[RtIdx] >= imax[RtIdx]) {
             // To the Right
-            std::cout << "Rt (" <<
-              intersection.min()[InIdx] - imin[InIdx] << ", " <<
-              imax[UpIdx] - intersection.max()[UpIdx] << " - " <<
-              intersection.max()[InIdx] - imin[InIdx] << ", " <<
-              imax[UpIdx] - intersection.min()[UpIdx] << ")\n";
+            transform = Eigen::AngleAxis<Real>(-M_PI / 2, Vector3::Unit(UpIdx)) * Eigen::Translation<Real, 3>(-imax[RtIdx], -imin[UpIdx], -imax[InIdx]);
           } else if (jmax[RtIdx] <= imin[RtIdx]) {
             // To the left
-            std::cout << "Lt (" <<
-              imax[InIdx] - intersection.max()[InIdx] << ", " <<
-              imax[UpIdx] - intersection.max()[UpIdx] << " - " <<
-              imax[InIdx] - intersection.min()[InIdx] << ", " <<
-              imax[UpIdx] - intersection.min()[UpIdx] << ")\n";
+            transform = Eigen::AngleAxis<Real>(M_PI / 2, Vector3::Unit(UpIdx)) * Eigen::Translation<Real, 3>(-imin[RtIdx], -imin[UpIdx], -imin[InIdx]);
           } else if (jmin[UpIdx] >= imax[UpIdx]) {
             // To the top
             std::cout << "Tp (" <<
@@ -131,12 +149,27 @@ public:
               intersection.max()[RtIdx] - imin[RtIdx] << ", " <<
               imax[UpIdx] - intersection.min()[UpIdx] << ")\n";
           }
+          
+          // Project corners onto xy plane
+          AlignedBox projected;
+          for (int corner = 0; corner < 8; ++corner) {
+            Vector3 transformed = transform * corners[corner];
+            projected.extend(transformed);
+            std::cout << "(" << corners[corner].x() << ", " << corners[corner].y() << ", " << corners[corner].z() << ") becomes (" << transformed.x() << ", " << transformed.y() << ", " << transformed.z() << ")" << std::endl;
+          }
+          
+          std::cout << "(" <<
+            projected.min().x() << ", " << projected.min().y() << ") - (" <<
+            projected.max().x() << ", " << projected.max().y() << ")\n" ;
         }
       }
     }
     
     std::cout << std::endl;
   }
+  
+private:
+  Handness handness_;
 
 };
 

@@ -60,9 +60,9 @@ bool Camera::handleKey(unsigned char key, int x, int y, float speed)
 	PX_UNUSED(x);
 	PX_UNUSED(y);
 
-	PxVec3 viewY = mDir.cross(PxVec3(0,1,0)).getNormalized();
+	PxVec3 viewY = mDir.cross(physx::PxVec3(0,1,0)).getNormalized();
  if (mHandness == hsim::Handness::kLeft) {
-  speed *= -1;
+  viewY *= -1;
  }
 	switch(toupper(key))
 	{
@@ -77,7 +77,7 @@ bool Camera::handleKey(unsigned char key, int x, int y, float speed)
 
 void Camera::handleAnalogMove(float x, float y)
 {
-	PxVec3 viewY = mDir.cross(PxVec3(0,1,0)).getNormalized();
+	PxVec3 viewY = mDir.cross(physx::PxVec3(0,1,0)).getNormalized();
 	mEye += mDir*y;
 	mEye += viewY*x;
 }
@@ -87,7 +87,11 @@ void Camera::handleMotion(int x, int y)
 	int dx = mMouseX - x;
 	int dy = mMouseY - y;
 
-	PxVec3 viewY = mDir.cross(PxVec3(0,1,0)).getNormalized();
+	PxVec3 viewY = mDir.cross(physx::PxVec3(0,1,0)).getNormalized();
+ 
+  if (mHandness == hsim::Handness::kLeft) {
+    dx *= -1;
+  }
 
 	PxQuat qx(PxPi * dx / 180.0f, PxVec3(0,1,0));
 	mDir = qx.rotate(mDir);
@@ -99,7 +103,7 @@ void Camera::handleMotion(int x, int y)
 	mMouseX = x;
 	mMouseY = y;
 }
-
+/*
 PxTransform Camera::getTransform() const
 {
 	PxVec3 viewY = mDir.cross(PxVec3(0,1,0));
@@ -110,7 +114,7 @@ PxTransform Camera::getTransform() const
 	PxMat33 m(mDir.cross(viewY), viewY, -mDir);
 	return PxTransform(mEye, PxQuat(m));
 }
-
+*/
 PxVec3 Camera::getEye() const
 { 
 	return mEye; 

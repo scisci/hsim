@@ -60,7 +60,7 @@ void keyPress(unsigned char key, const PxTransform& camera)
 namespace
 {
 
-static hsim::Handness handness = hsim::Handness::kLeft;
+static hsim::Handness handness = hsim::Handness::kRight;
   
 
 struct ConeTest {

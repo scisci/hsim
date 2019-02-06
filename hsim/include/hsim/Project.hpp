@@ -39,21 +39,33 @@ struct Curve {
 class Project {
 public:
   Project()
-  :rng(rd())
+  :seed_(rd()),
+   rng(seed_)
   {}
   
   virtual ~Project() {}
   
-  // Should generate a new iteration of the tree specified
+  void Seed(int64_t seed)
+  {
+    seed_ = seed;
+    rng.seed(seed_);
+  }
+  
+  int64_t LastSeed() const
+  {
+    return seed_;
+  }
   std::unique_ptr<htree::Tree> GenerateTree();
   htree::StringNodeAttributes Attribute(const htree::Tree& tree);
   std::unique_ptr<Actor> CreateActor(
     const htree::Tree& tree,
-    const htree::StringNodeAttributes& attributes);
+    const htree::StringNodeAttributes& attributes,
+    Handness handness);
   
   
 private:
   std::random_device rd;
+  int64_t seed_;
   std::mt19937_64 rng;
 };
 
@@ -71,7 +83,9 @@ public:
     agent_(nullptr),
     state_(0),
     sim_time_(0.0),
-    debug_agent_(nullptr)
+    debug_agent_(nullptr),
+    right_(true),
+    last_seed_(0)
   {
     character_ = simulation_->AddCharacter(0.1, 0.5);
     character_->SetPosition(Vector3(-10.0, 0.0, 0.0));
@@ -113,9 +127,18 @@ public:
     Clear();
     
     hsim::Project project;
+
+    if (right_) {
+      last_seed_ = project.LastSeed();
+    } else {
+      project.Seed(last_seed_);
+    }
     std::unique_ptr<htree::Tree> tree = project.GenerateTree();
     htree::StringNodeAttributes attributes = project.Attribute(*tree.get());
-    actor_ = project.CreateActor(*tree.get(), attributes);
+    
+    Handness handness = right_ ? Handness::kRight : Handness::kLeft;
+    right_ = !right_;
+    actor_ = project.CreateActor(*tree.get(), attributes, handness);
     
     Load();
     
@@ -211,7 +234,7 @@ public:
     auto actor = builder.Build();
     debug_agent_ = simulation_->AddActor(*actor.get());
     
-    PlanBuilder pbuild;
+    PlanBuilder pbuild(Handness::kRight);
     pbuild.Build(rigid_body);
   }
   
@@ -386,6 +409,8 @@ private:
   Character *character_;
   JumpSolver jump_solver_;
   ActorAgent *debug_agent_;
+  bool right_;
+  int64_t last_seed_;
 };
 
 
