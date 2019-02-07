@@ -125,7 +125,7 @@ std::unique_ptr<Actor> Project::CreateActor(const htree::Tree& tree, const htree
     transform.translation() = box.center();
     
     // Convert left handed to right handed
-    if (handness == kRight) {
+    if (handness == Handness::kRight) {
       transform.translation()[InIdx] = -transform.translation()[InIdx];
     }
     

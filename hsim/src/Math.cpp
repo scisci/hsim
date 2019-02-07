@@ -55,7 +55,7 @@ Matrix4 CalcXYWHProjection(
   Real zfar,
   Handness handness)
 {
-  const bool right_handed = handness == kRight;
+  const bool right_handed = handness == Handness::kRight;
   
   const Real diff = zfar - znear;
   const Real aa = (zfar + znear) / diff;
@@ -87,7 +87,7 @@ Matrix4 CalcPerspectiveProjection(
 
 Matrix4 CalcViewMatrix(const Vector3& eye, const Vector3& at, Handness handness)
 {
-  const bool right_handed = handness == kRight;
+  const bool right_handed = handness == Handness::kRight;
   const Vector3 up(0.0, 1.0, 0.0);
   
   const Vector3 z_axis = (right_handed ? eye - at : at - eye).normalized();

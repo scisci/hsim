@@ -234,7 +234,7 @@ public:
     auto actor = builder.Build();
     debug_agent_ = simulation_->AddActor(*actor.get());
     
-    PlanBuilder pbuild(Handness::kRight);
+    PlanBuilder pbuild(PlanUnit::kInches, Handness::kRight);
     pbuild.Build(rigid_body);
   }
   

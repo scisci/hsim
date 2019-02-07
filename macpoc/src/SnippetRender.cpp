@@ -279,7 +279,7 @@ void setupDefaultRenderState(hsim::Handness handness)
 	PxReal ambientColor[]	= { 0.0f, 0.1f, 0.2f, 0.0f };
 	PxReal diffuseColor[]	= { 1.0f, 1.0f, 1.0f, 0.0f };		
 	PxReal specularColor[]	= { 0.0f, 0.0f, 0.0f, 0.0f };		
-	PxReal position[]		= { 20.0f, 20.0f, 20.0f, handness == hsim::kRight ? 1.0f : -1.0f };
+	PxReal position[]		= { 20.0f, 20.0f, 20.0f, handness == hsim::Handness::kRight ? 1.0f : -1.0f };
 	glLightfv(GL_LIGHT0, GL_AMBIENT, ambientColor);
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseColor);
 	glLightfv(GL_LIGHT0, GL_SPECULAR, specularColor);
