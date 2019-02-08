@@ -3,6 +3,7 @@
 #define HSIM_PROJECT_HPP
 
 #include "hsim/Physics.hpp"
+#include "hsim/Colors.hpp"
 
 #include "htree/Golden.hpp"
 #include "htree/RandomBasicGenerator.hpp"
@@ -18,6 +19,7 @@
 
 #include <memory>
 #include <iostream>
+#include <fstream>
 
 namespace hsim {
 
@@ -36,10 +38,15 @@ struct Curve {
   std::size_t end_index;
 };
 
+struct ActorContainer {
+  std::unique_ptr<Actor> actor;
+  std::vector<Color> color_map;
+};
+
 class Project {
 public:
   Project()
-  :seed_(rd()),
+  :seed_(0),
    rng(seed_)
   {}
   
@@ -57,14 +64,14 @@ public:
   }
   std::unique_ptr<htree::Tree> GenerateTree();
   htree::StringNodeAttributes Attribute(const htree::Tree& tree);
-  std::unique_ptr<Actor> CreateActor(
+  ActorContainer CreateActor(
     const htree::Tree& tree,
     const htree::StringNodeAttributes& attributes,
     Handness handness);
   
   
 private:
-  std::random_device rd;
+  
   int64_t seed_;
   std::mt19937_64 rng;
 };
@@ -76,7 +83,19 @@ enum IterationStatus {
   kFailed
 };
 
-class Iteration {
+class ColorMap {
+public:
+  
+  const Color& At(size_t index) const
+  {
+    
+  }
+  
+private:
+  std::vector<Color> colors_;
+};
+
+class Iteration : public RenderDecorator {
 public:
   Iteration(PhysicsEngine& engine)
   : simulation_(engine.CreateSimulation()),
@@ -84,11 +103,11 @@ public:
     state_(0),
     sim_time_(0.0),
     debug_agent_(nullptr),
-    right_(true),
+    //right_(true),
     last_seed_(0)
   {
-    character_ = simulation_->AddCharacter(0.1, 0.5);
-    character_->SetPosition(Vector3(-10.0, 0.0, 0.0));
+    //character_ = simulation_->AddCharacter(0.1, 0.5);
+    //character_->SetPosition(Vector3(-10.0, 0.0, 0.0));
   }
   
   std::vector<Curve> curves;
@@ -98,6 +117,15 @@ public:
   {
     Clear();
     Load();
+  }
+  
+  virtual const std::vector<Color>* ActorColorMap(const Actor& actor) const
+  {
+    if (&actor == actor_.actor.get()) {
+      return &actor_.color_map;
+    }
+    
+    return nullptr;
   }
   
   void Clear()
@@ -125,20 +153,18 @@ public:
   void Next()
   {
     Clear();
+    BuildFromSeed(rd_());
+  }
+  
+  void BuildFromSeed(int64_t seed)
+  {
+    last_seed_ = seed;
+    project_.Seed(last_seed_);
+    std::unique_ptr<htree::Tree> tree = project_.GenerateTree();
+    htree::StringNodeAttributes attributes = project_.Attribute(*tree.get());
     
-    hsim::Project project;
-
-    if (right_) {
-      last_seed_ = project.LastSeed();
-    } else {
-      project.Seed(last_seed_);
-    }
-    std::unique_ptr<htree::Tree> tree = project.GenerateTree();
-    htree::StringNodeAttributes attributes = project.Attribute(*tree.get());
-    
-    Handness handness = right_ ? Handness::kRight : Handness::kLeft;
-    right_ = !right_;
-    actor_ = project.CreateActor(*tree.get(), attributes, handness);
+    Handness handness = Handness::kRight;
+    actor_ = project_.CreateActor(*tree.get(), attributes, handness);
     
     Load();
     
@@ -147,7 +173,7 @@ public:
   
   void Load()
   {
-    agent_ = simulation_->AddActor(*(actor_.get()));
+    agent_ = simulation_->AddActor(*actor_.actor.get());
     
     conns_.push_back(
       agent_->ConnectDidSleep(
@@ -164,7 +190,7 @@ public:
       std::cout << "Fell over" << std::endl;
       state_ = 4;
     } else {
-      RigidDynamic *rigid_actor = static_cast<RigidDynamic *>(actor_.get());
+      RigidDynamic *rigid_actor = static_cast<RigidDynamic *>(actor_.actor.get());
       
       std::cout << "Upright" << std::endl;
       if (++state_ == 1) {
@@ -197,11 +223,11 @@ public:
   
   void Intersect()
   {
-    if (actor_->Type() != kRigidDynamic && actor_->Type() != kRigidStatic) {
+    if (actor_.actor->Type() != kRigidDynamic && actor_.actor->Type() != kRigidStatic) {
       return;
     }
     
-    const RigidBody& rigid_body = static_cast<const RigidBody&>(*actor_.get());
+    const RigidBody& rigid_body = static_cast<const RigidBody&>(*actor_.actor.get());
 
     const Real cat_radius = 0.125;
     jump_solver_.Solve(rigid_body);
@@ -234,8 +260,7 @@ public:
     auto actor = builder.Build();
     debug_agent_ = simulation_->AddActor(*actor.get());
     
-    PlanBuilder pbuild(PlanUnit::kInches, Handness::kRight);
-    pbuild.Build(rigid_body);
+    
   }
   
   IterationStatus Step()
@@ -259,20 +284,32 @@ public:
     }
   }
   
-  void Write()
+  void Open(const std::string& path)
+  {
+    std::ifstream proj_file;
+    proj_file.open(path);
+    
+    int64_t seed;
+    proj_file >> seed;
+
+    Clear();
+    BuildFromSeed(seed);
+  }
+  
+  void Write(const std::string& directory)
   {
     // Take our actor and tesselate and write it
-    if (actor_ == nullptr) {
+    if (actor_.actor == nullptr) {
       return;
     }
     
-    if (actor_->Type() != kRigidDynamic && actor_->Type() != kRigidStatic) {
+    if (actor_.actor->Type() != kRigidDynamic && actor_.actor->Type() != kRigidStatic) {
       return;
     }
     
-    const RigidActor& rigid_actor = static_cast<const RigidActor&>(*actor_.get());
+    const RigidActor& rigid_actor = static_cast<const RigidActor&>(*actor_.actor.get());
     
-    TesselationBuilder builder;
+    TesselationBuilder builder(Handness::kRight);
     
     Vector3 units[] = {
       Vector3::UnitX(),
@@ -280,103 +317,91 @@ public:
       Vector3::UnitZ()
     };
     
+    
     for (const auto& shape : rigid_actor.Shapes()) {
       const Geometry& geometry = shape->Geometry();
       switch (geometry.Type()) {
         case kBox:
         {
           const Box& box = static_cast<const Box&>(geometry);
-          //builder.Add(box, shape->Transform());
+          const bool bevel = true;
+          if (!bevel) {
+            builder.Add(box, shape->Transform());
+          } else {
           
-          Real inset = 0.0025; // half cm
-          Real depth = 0.0025;
-          
-          Vector3 orig_sizes(box.Width(), box.Height(), box.Depth());
- 
-          for (int i = 0; i < 3; ++i) {
-            size_t width_index, height_index;
-            switch (i) {
-              case 0:
-                width_index = 2;
-                height_index = 1;
-                break;
-              case 1:
-                width_index = 0;
-                height_index = 2;
-                break;
-              case 2:
-                width_index = 0;
-                height_index = 1;
-                break;
-            }
+            Real inset = 0.0025; // half cm
+            Real depth = 0.0025;
             
-            
-            Vector3 width_vec = units[width_index];
-            Vector3 height_vec = units[height_index];
-            Vector3 depth_vec = units[i];
-            Real width = orig_sizes(width_index);
-            Real height = orig_sizes(height_index);
-            Real d = orig_sizes(i);
-            
-            std::vector<Vector3> points(8);
-            points[0] = -width/2 * width_vec - height/2 * height_vec;
-            points[1] = width/2 * width_vec - height/2 * height_vec;
-            points[2] = width/2 * width_vec + height/2 * height_vec;
-            points[3] = -width/2 * width_vec + height/2 * height_vec;
-            points[4] = -(width/2 - inset) * width_vec - (height/2 - inset) * height_vec;
-            points[5] = (width/2 - inset) * width_vec - (height/2 - inset) * height_vec;
-            points[6] = (width/2 - inset) * width_vec + (height/2 - inset) * height_vec;
-            points[7] = -(width/2 - inset) * width_vec + (height/2 - inset) * height_vec;
-            
-            std::vector<std::size_t> indices = {
-              0, 1, 4, 4, 1, 5, 5, 1, 2, 5, 2, 6, 6, 2, 3, 6, 3, 7,
-              3, 0, 7, 7, 0, 4, 4, 5, 7, 7, 5, 6};
-            
-            std::vector<Vector3> points_back = points;
-            for (int j = 0; j < 8; ++j) {
-              Real amt = (d / 2 + (j > 3 ? depth : 0));
-              if (i == 2) {
-                amt *= -1; // this was necessary because z axis is negative in, not sure, but fixed normals
+            Vector3 orig_sizes(box.Width(), box.Height(), box.Depth());
+   
+            for (int i = 0; i < 3; ++i) {
+              size_t width_index, height_index;
+              switch (i) {
+                case 0:
+                  width_index = 2;
+                  height_index = 1;
+                  break;
+                case 1:
+                  width_index = 0;
+                  height_index = 2;
+                  break;
+                case 2:
+                  width_index = 0;
+                  height_index = 1;
+                  break;
               }
-              points[j] += amt * depth_vec;
-              points_back[j] -= amt * depth_vec;
               
-              points[j] = shape->Transform() * points[j];
-              points_back[j] = shape->Transform() * points_back[j];
+              
+              Vector3 width_vec = units[width_index];
+              Vector3 height_vec = units[height_index];
+              Vector3 depth_vec = units[i];
+              Real width = orig_sizes(width_index);
+              Real height = orig_sizes(height_index);
+              Real d = orig_sizes(i);
+              
+              std::vector<Vector3> points(8);
+              // Outer square (clockwise)
+              points[0] = -width/2 * width_vec - height/2 * height_vec;
+              points[1] = width/2 * width_vec - height/2 * height_vec;
+              points[2] = width/2 * width_vec + height/2 * height_vec;
+              points[3] = -width/2 * width_vec + height/2 * height_vec;
+              // Inner square (clockwise)
+              points[4] = -(width/2 - inset) * width_vec - (height/2 - inset) * height_vec;
+              points[5] = (width/2 - inset) * width_vec - (height/2 - inset) * height_vec;
+              points[6] = (width/2 - inset) * width_vec + (height/2 - inset) * height_vec;
+              points[7] = -(width/2 - inset) * width_vec + (height/2 - inset) * height_vec;
+              
+              std::vector<std::size_t> indices = {
+                4, 1, 0, 5, 1, 4, // Top outside
+                2, 1, 5, 6, 2, 5, // Right outside
+                3, 2, 6, 7, 3, 6, // Bottom outside
+                7, 0, 3, 4, 0, 7, // Left outside
+                7, 5, 4, 6, 5, 7}; // inside
+              
+              std::vector<Vector3> points_back = points;
+              for (int j = 0; j < 8; ++j) {
+                Real amt = (d / 2 + (j > 3 ? depth : 0));
+                
+                // In a right handed system the z axis is negative towards the
+                // back
+                if (i == 2 && builder.Handness() == Handness::kRight) {
+                  amt *= -1;
+                }
+                
+                points[j] += amt * depth_vec;
+                points_back[j] -= amt * depth_vec;
+                
+                points[j] = shape->Transform() * points[j];
+                points_back[j] = shape->Transform() * points_back[j];
+              }
+              
+              builder.Add(points, indices);
+              // Flip vertices for the back points since they are specified from
+              // the inside
+              std::reverse(indices.begin(), indices.end());
+              builder.Add(points_back, indices);
+              
             }
-            
-            
-            builder.Add(points_back, indices);
-            // Flip clockwise for normals
-            std::reverse(indices.begin(), indices.end());
-            builder.Add(points, indices);
-            
-            
-          /*
-            std::vector<Vector3> outer(4);
-            outer[0] =
-            
-            Vector3 sizes = orig_sizes;
-            sizes(0) -= inset;
-            sizes(1) -= inset;
-            sizes(2) -= inset;
-            sizes(i) = depth;
-            
-            //sizes(i) = depth;
-            
-            Vector3 trans(0, 0, 0);
-            trans(i) = orig_sizes(i) / 2 + depth / 2;
-          
-            Transform t1 = shape->Transform();
-            t1.translation() += trans;
-            
-            Transform t2 = shape->Transform();
-            t2.translation() -= trans;
-            
-            Box box1(sizes(0), sizes(1), sizes(2));
-            builder.Add(box1, t1);
-            builder.Add(box1, t2);
-            */
           }
         }
           break;
@@ -385,6 +410,17 @@ public:
           assert(0);
       }
     }
+    
+    // First lets write the project which is just the seed
+    std::ofstream proj_file;
+    proj_file.open(directory + "/project.txt");
+    proj_file << last_seed_;
+    proj_file << std::endl;
+    proj_file.close();
+    
+    // Second write the stl file
+    std::ofstream stl_file;
+    stl_file.open(directory + "/model.stl");
     
     StlFormatWriter writer;
     
@@ -396,12 +432,27 @@ public:
     transform.rotate(axis_swap);
     transform.scale(scale);
     writer.SetTransform(transform);
-    writer.Write(builder.Tesselation(), std::cout);
+    writer.Write(builder.Tesselation(), stl_file);
+    stl_file.close();
+    
+    
+    // Write the build plan
+    if (actor_.actor->Type() != kRigidDynamic && actor_.actor->Type() != kRigidStatic) {
+      return;
+    }
+    
+    const RigidBody& rigid_body = static_cast<const RigidBody&>(*actor_.actor.get());
+    
+    std::ofstream plan_file;
+    plan_file.open(directory + "/plan.txt");
+    PlanBuilder pbuild(PlanUnit::kInches, Handness::kRight);
+    pbuild.Write(plan_file, rigid_body, actor_.color_map);
+    plan_file.close();
   }
   
 private:
   std::unique_ptr<Simulation> simulation_;
-  std::unique_ptr<Actor> actor_;
+  ActorContainer actor_;
   ActorAgent *agent_;
   int state_;
   float sim_time_;
@@ -409,8 +460,10 @@ private:
   Character *character_;
   JumpSolver jump_solver_;
   ActorAgent *debug_agent_;
-  bool right_;
+  //bool right_;
   int64_t last_seed_;
+  hsim::Project project_;
+  std::random_device rd_;
 };
 
 

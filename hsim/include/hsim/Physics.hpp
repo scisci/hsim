@@ -4,12 +4,20 @@
 
 #include "hsim/Geometry.hpp"
 #include "hsim/Math.hpp"
+#include "hsim/Colors.hpp"
 
 #include <boost/signals2.hpp>
 #include <memory>
 
 namespace hsim {
 
+class Actor;
+
+class RenderDecorator {
+public:
+  virtual ~RenderDecorator() {}
+  virtual const std::vector<Color>* ActorColorMap(const Actor& actor) const = 0;
+};
 
 struct MaterialCoefficients {
   Real restitution;

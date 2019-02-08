@@ -14,6 +14,7 @@
 class TestFile {
 public:
   static void OpenDirectory(std::function<void(std::string)> cb);
+  static void OpenFile(std::function<void(std::string)> cb);
 };
 
 

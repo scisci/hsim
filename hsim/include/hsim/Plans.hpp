@@ -12,6 +12,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include <numeric>
 
 namespace hsim {
 
@@ -19,6 +20,18 @@ enum class PlanUnit {
   kInches,
   kCentimeters
 };
+
+template <typename T, typename Compare>
+std::vector<std::size_t> sort_permutation(
+    const std::vector<T>& vec,
+    Compare& compare)
+{
+    std::vector<std::size_t> p(vec.size());
+    std::iota(p.begin(), p.end(), 0);
+    std::sort(p.begin(), p.end(),
+        [&](std::size_t i, std::size_t j){ return compare(vec[i], vec[j]); });
+    return p;
+}
 
 struct FormattedValue {
   FormattedValue(Real value, PlanUnit unit)
@@ -163,6 +176,11 @@ struct BoxCut {
   Vector2 max;
 };
 
+struct ColoredBox {
+  AlignedBox box;
+  Color color;
+};
+
 bool CompareBoxCut(const BoxCut& lhs, const BoxCut& rhs);
 
 class PlanBuilder {
@@ -172,7 +190,7 @@ public:
    handness_(handness)
   {}
   
-  void Build(const RigidBody& body)
+  void Write(std::ostream& out, const RigidBody& body, const std::vector<Color>& color_map)
   {
     // Visit each shape
     std::vector<AlignedBox> boxes;
@@ -185,23 +203,24 @@ public:
       boxes.push_back(box);
     }
     
-    Build(boxes);
+    Write(out, boxes, color_map);
     
     
   }
   
-  void Build(const std::vector<AlignedBox>& boxes)
+  void Write(std::ostream& out, const std::vector<AlignedBox>& boxes, const std::vector<Color>& color_map)
   {
-    std::cout << boxes.size() << " boxes." << std::endl;
+    out << boxes.size() << " boxes." << std::endl;
     // First sort the boxes
-    std::vector<AlignedBox> sorted_boxes = boxes;
-    std::sort(sorted_boxes.begin(), sorted_boxes.end(), BoxPlanSorter(handness_));
-    
+    BoxPlanSorter sorter(handness_);
+    auto sort_order = sort_permutation<AlignedBox, BoxPlanSorter>(boxes, sorter);
+
     // Find the neighbors of each box
-    for (std::size_t i = 0; i < sorted_boxes.size(); ++i) {
-      auto sizes = sorted_boxes[i].sizes();
+    for (std::size_t i = 0; i < sort_order.size(); ++i) {
+      const AlignedBox& box = boxes[sort_order[i]];
+      auto sizes = box.sizes();
       int itag = i + 1;
-      std::cout << "\nBox " << itag << "\n" <<
+      out << "\nBox " << itag << "(" << color_map[sort_order[i]].name << ")\n" <<
         "------\n" <<
         Measurement(sizes[RtIdx]) << " wide\n" <<
         Measurement(sizes[UpIdx]) << " tall\n" <<
@@ -210,13 +229,13 @@ public:
       std::vector<BoxCut> cuts;
       const Real epsilon = 1e-6;
 
-      for (std::size_t j = 0; j < sorted_boxes.size(); ++j) {
+      for (std::size_t j = 0; j < sort_order.size(); ++j) {
         if (i == j) {
           continue;
         }
-
-        if (sorted_boxes[i].squaredExteriorDistance(sorted_boxes[j]) < epsilon) {
-          auto result = CalcNeighborCut(j, sorted_boxes[i], sorted_boxes[j], epsilon);
+        const AlignedBox& other = boxes[sort_order[j]];
+        if (box.squaredExteriorDistance(other) < epsilon) {
+          auto result = CalcNeighborCut(j, box, other, epsilon);
           if (result.second) {
             cuts.push_back(result.first);
           }
@@ -229,22 +248,22 @@ public:
       for (const BoxCut& cut : cuts) {
         if (first || cut.side != side) {
           if (!first) {
-            std::cout << "\n";
+            out << "\n";
           } else {
             first = false;
           }
           side = cut.side;
-          std::cout << "\t" << BoxSideName(side) << ":\n";
+          out << "\t" << BoxSideName(side) << ":\n";
         }
         
-        std::cout << "\t\tBox " << (cut.id + 1) << " (" <<
+        out << "\t\tBox " << (cut.id + 1) << " (" <<
           BoxSideName(OppositeBoxSide(side)) << ")\n" <<
           "\t\t\t(" << Measurement(cut.min.x()) << ", " << Measurement(cut.min.y()) << ") bottom left\n" <<
           "\t\t\t(" << Measurement(cut.max.x()) << ", " << Measurement(cut.max.y()) << ") top right\n";
       }
     }
     
-    std::cout << std::endl;
+    out << std::endl;
   }
   
 private:

@@ -28,6 +28,9 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #include "SnippetRender.hpp"
+#include "hsim/PxEngine.hpp"
+#include "hsim/Colors.hpp"
+#include "hsim/Physics.hpp"
 
 using namespace physx;
 
@@ -276,19 +279,20 @@ void setupDefaultRenderState(hsim::Handness handness)
 
 	// Setup lighting
 	glEnable(GL_LIGHTING);
-	PxReal ambientColor[]	= { 0.0f, 0.1f, 0.2f, 0.0f };
-	PxReal diffuseColor[]	= { 1.0f, 1.0f, 1.0f, 0.0f };		
-	PxReal specularColor[]	= { 0.0f, 0.0f, 0.0f, 0.0f };		
-	PxReal position[]		= { 20.0f, 20.0f, 20.0f, handness == hsim::Handness::kRight ? 1.0f : -1.0f };
+	PxReal ambientColor[]	= { 0.0f, 0.0f, 0.0f, 1.0f };
+	PxReal diffuseColor[]	= { 1.0f, 1.0f, 1.0f, 1.0f };
+	PxReal specularColor[]	= { 0.0f, 0.0f, 0.0f, 1.0f };
+	PxReal position[]		= { 100.0f, 100.0f, 400.0f, 0 };
 	glLightfv(GL_LIGHT0, GL_AMBIENT, ambientColor);
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseColor);
 	glLightfv(GL_LIGHT0, GL_SPECULAR, specularColor);
 	glLightfv(GL_LIGHT0, GL_POSITION, position);
 	glEnable(GL_LIGHT0);
+ glEnable(GL_RESCALE_NORMAL);
 }
 
 
-void startRender(const PxVec3& cameraEye, const PxVec3& cameraDir, PxReal clipNear, PxReal clipFar, hsim::Handness handness)
+void startRender(ProjType proj_type, const PxVec3& cameraEye, const PxVec3& cameraDir, PxReal clipNear, PxReal clipFar, hsim::Handness handness)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   float res[16];
@@ -296,8 +300,14 @@ void startRender(const PxVec3& cameraEye, const PxVec3& cameraDir, PxReal clipNe
 	// Setup camera
 	glMatrixMode(GL_PROJECTION);
  
-  auto proj = hsim::CalcPerspectiveProjection(60.0, GLdouble(glutGet(GLUT_WINDOW_WIDTH)) / GLdouble(glutGet(GLUT_WINDOW_HEIGHT)), GLdouble(clipNear), GLdouble(clipFar), handness);
-  hsim::ToGLMatrix(proj, &res[0]);
+  if (proj_type == kPersp) {
+    auto proj = hsim::CalcPerspectiveProjection(60.0, GLdouble(glutGet(GLUT_WINDOW_WIDTH)) / GLdouble(glutGet(GLUT_WINDOW_HEIGHT)), GLdouble(clipNear), GLdouble(clipFar), handness);
+    
+    hsim::ToGLMatrix(proj, &res[0]);
+  } else {
+    auto proj = hsim::CalcOrthoProjection(-1.5, 1.5, -1.5, 1.5, clipNear, clipFar, 0.0);
+    hsim::ToGLMatrix(proj, &res[0]);
+  }
   
   glLoadMatrixf(&res[0]);
   
@@ -326,7 +336,7 @@ void startRender(const PxVec3& cameraEye, const PxVec3& cameraDir, PxReal clipNe
 
  glGetFloatv(GL_MODELVIEW_MATRIX, &res[0]);
 */
-	glColor4f(0.4f, 0.4f, 0.4f, 1.0f);
+
 }
 
 void renderActor(const hsim::RigidBody& actor)
@@ -374,7 +384,7 @@ void renderActor(const hsim::RigidBody& actor)
   
 }
 
-void renderActors(PxRigidActor** actors, const PxU32 numActors, bool shadows, const PxVec3 & color)
+  void renderActors(PxRigidActor** actors, const PxU32 numActors, bool shadows, const hsim::RenderDecorator& deco)
 {
   float colors[] = {1.0, 0.5, 0.5, 0.25, 0.0, 0.75, 0.9, 0.1, 0.1, 0.6, 0.0, 0.1};
 	PxShape* shapes[MAX_NUM_ACTOR_SHAPES];
@@ -383,7 +393,17 @@ void renderActors(PxRigidActor** actors, const PxU32 numActors, bool shadows, co
 		const PxU32 nbShapes = actors[i]->getNbShapes();
 		PX_ASSERT(nbShapes <= MAX_NUM_ACTOR_SHAPES);
 		actors[i]->getShapes(shapes, nbShapes);
-		bool sleeping = actors[i]->is<PxRigidDynamic>() ? actors[i]->is<PxRigidDynamic>()->isSleeping() : false; 
+		bool sleeping = actors[i]->is<PxRigidDynamic>() ? actors[i]->is<PxRigidDynamic>()->isSleeping() : false;
+  
+    const std::vector<hsim::Color> *color_map = nullptr;
+    
+    if (actors[i]->userData != nullptr) {
+      hsim::PxUserData *user_data = static_cast<hsim::PxUserData *>(actors[i]->userData);
+      if (user_data->type == hsim::kRigidDynamicActorAgent) {
+        hsim::PxActorAgent *agent = static_cast<hsim::PxActorAgent *>(user_data->inst);
+        color_map = deco.ActorColorMap(agent->Model());
+      }
+    }
 
 		for(PxU32 j=0;j<nbShapes;j++)
 		{
@@ -396,8 +416,15 @@ void renderActors(PxRigidActor** actors, const PxU32 numActors, bool shadows, co
 			// render object
 			glPushMatrix();						
 			glMultMatrixf(reinterpret_cast<const float*>(&shapePose));
-			  float* rc = &colors[(j % 4) * 3];
-     PxVec3 mycolor(rc[0], rc[1], rc[2]);
+      
+      float* rc = &colors[(j % 4) * 3];
+      PxVec3 mycolor(rc[0], rc[1], rc[2]);
+      
+      if (color_map != nullptr) {
+        mycolor.x = (((*color_map)[j].value >> 16) & 0xFF) / 255.0;
+        mycolor.y = (((*color_map)[j].value >> 8) & 0xFF) / 255.0;
+        mycolor.z = (((*color_map)[j].value >> 0) & 0xFF) / 255.0;
+      }
       if(sleeping)
 			{
 				PxVec3 darkColor = mycolor * 0.25f;

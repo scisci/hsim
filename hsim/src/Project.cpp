@@ -6,6 +6,7 @@
 //
 
 #include "hsim/Project.hpp"
+#include "hsim/Colors.hpp"
 
 namespace hsim {
 
@@ -80,8 +81,9 @@ BoxCluster BuildGeometry(const htree::Tree& tree, const htree::StringNodeAttribu
 }
 */
 
-std::unique_ptr<Actor> Project::CreateActor(const htree::Tree& tree, const htree::StringNodeAttributes& attributes, Handness handness)
+ActorContainer Project::CreateActor(const htree::Tree& tree, const htree::StringNodeAttributes& attributes, Handness handness)
 {
+  ActorContainer container;
   Real height_meters = 2.0;
   Real scale = height_meters / 1.0;
   htree::Vector origin(0.0, 0.0, 0.0);
@@ -107,6 +109,8 @@ std::unique_ptr<Actor> Project::CreateActor(const htree::Tree& tree, const htree
       density,
       transform);
   }*/
+  
+  std::uniform_int_distribution<int64_t> color_dist(0, Colors::all.size() - 1);
   
   while (rit.HasNext()) {
     htree::NodeRegion node_region = rit.Next();
@@ -138,9 +142,12 @@ std::unique_ptr<Actor> Project::CreateActor(const htree::Tree& tree, const htree
       transform);
     
     
+    container.color_map.push_back(Colors::all[color_dist(rng)]);
   }
   
-  return builder.Build();
+  container.actor = builder.Build();
+  return container;
+  
 }
 
 

@@ -81,6 +81,16 @@ Matrix4 CalcPerspectiveProjection(
   Real far,
   Handness handness=Handness::kRight);
   
+Matrix4 CalcOrthoProjection(
+  Real left,
+  Real right,
+  Real bottom,
+  Real top,
+  Real near,
+  Real far,
+  Real offset,
+  Handness handness=Handness::kRight);
+
 Matrix4 CalcViewMatrix(
   const Vector3& eye,
   const Vector3& at,

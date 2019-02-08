@@ -52,11 +52,17 @@
 
 namespace Snippets
 {
+
+enum ProjType {
+  kOrtho,
+  kPersp
+};
+
 void setupDefaultWindow(const char* name);
 void setupDefaultRenderState(hsim::Handness handness);
 
-void startRender(const physx::PxVec3& cameraEye, const physx::PxVec3& cameraDir, physx::PxReal nearClip, physx::PxReal farClip, hsim::Handness handness);
-void renderActors(physx::PxRigidActor** actors, const physx::PxU32 numActors, bool shadows = false, const physx::PxVec3 & color = physx::PxVec3(0.0f, 0.75f, 0.0f));
+void startRender(ProjType proj, const physx::PxVec3& cameraEye, const physx::PxVec3& cameraDir, physx::PxReal nearClip, physx::PxReal farClip, hsim::Handness handness);
+  void renderActors(physx::PxRigidActor** actors, const physx::PxU32 numActors, bool shadows, const hsim::RenderDecorator& deco);
 void renderActor(const hsim::RigidBody& actor);
 void finishRender();
 }

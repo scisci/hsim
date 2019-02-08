@@ -85,16 +85,59 @@ Matrix4 CalcPerspectiveProjection(
   return CalcXYWHProjection(0.0, 0.0, width, height, near, far, handness);
 }
 
+Matrix4 CalcOrthoProjection(
+  Real left,
+  Real right,
+  Real bottom,
+  Real top,
+  Real near,
+  Real far,
+  Real offset,
+  Handness handness)
+{
+  const bool homogeneousNdc = false; // depth -1 to 1
+  const Real aa = 2.0/(right - left);
+  const Real bb = 2.0/(top - bottom);
+  const Real cc = (homogeneousNdc ? 2.0f : 1.0f) / (far - near);
+  const Real dd = (left + right )/(left   - right);
+  const Real ee = (top  + bottom)/(bottom - top  );
+  const Real ff = homogeneousNdc
+    ? (near + far)/(near - far)
+    :  near        /(near - far)
+    ;
+
+  Matrix4 result = Matrix4::Zero();
+  result(0) = aa;
+  result(5) = bb;
+  result(10) = Handness::kRight == handness ? -cc : cc;
+  result(12) = dd + offset;
+  result(13) = ee;
+  result(14) = ff;
+  result(15) = 1.0;
+  return result;
+}
+
+
 Matrix4 CalcViewMatrix(const Vector3& eye, const Vector3& at, Handness handness)
 {
+  Matrix4 orientation;
   const bool right_handed = handness == Handness::kRight;
   const Vector3 up(0.0, 1.0, 0.0);
   
   const Vector3 z_axis = (right_handed ? eye - at : at - eye).normalized();
+  
+  if (z_axis.y() == 1.0 || z_axis.y() == -1.0) {
+    orientation <<
+    Vector4(1.0, 0.0, z_axis.x(), 0.0),
+    Vector4(0.0, 0.0, z_axis.y(), 0.0),
+    Vector4(0.0, z_axis.y(), z_axis.z(), 0.0),
+    Vector4(-eye.x(), -eye.z() * z_axis.y(), -eye.y() * z_axis.y(), 1);
+    return orientation;
+  }
+  
   const Vector3 x_axis = up.cross(z_axis).normalized();
   const Vector3 y_axis = z_axis.cross(x_axis);
 
-  Matrix4 orientation;
   orientation <<
     Vector4(x_axis.x(), y_axis.x(), z_axis.x(), 0.0),
     Vector4(x_axis.y(), y_axis.y(), z_axis.y(), 0.0),
