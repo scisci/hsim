@@ -185,8 +185,9 @@ bool CompareBoxCut(const BoxCut& lhs, const BoxCut& rhs);
 
 class PlanBuilder {
 public:
-  PlanBuilder(PlanUnit unit, Handness handness)
+  PlanBuilder(PlanUnit unit, Real scale, Handness handness)
   :unit_(unit),
+   scale_(scale),
    handness_(handness)
   {}
   
@@ -195,9 +196,11 @@ public:
     // Visit each shape
     std::vector<AlignedBox> boxes;
     auto& shapes = body.Shapes();
+    
+    auto scale_transform = Eigen::Scaling<Real>(scale_, scale_, scale_);
     for (std::size_t i = 0; i < shapes.size(); ++i) {
       auto& shape = shapes[i];
-      Transform transform = body.Transform() * shape->Transform();
+      AffineTransform transform = scale_transform * body.Transform() * shape->Transform();
       AlignedBox box = TransformAlignedBox(
         shape->Geometry().BoundingBox(), transform);
       boxes.push_back(box);
@@ -210,7 +213,7 @@ public:
   
   void Write(std::ostream& out, const std::vector<AlignedBox>& boxes, const std::vector<Color>& color_map)
   {
-    out << boxes.size() << " boxes." << std::endl;
+    out << boxes.size() << " boxes (Scale: " << scale_ << ")." << std::endl;
     // First sort the boxes
     BoxPlanSorter sorter(handness_);
     auto sort_order = sort_permutation<AlignedBox, BoxPlanSorter>(boxes, sorter);
@@ -405,6 +408,7 @@ private:
   }
   
   PlanUnit unit_;
+  Real scale_;
   Handness handness_;
   
 };

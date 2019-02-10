@@ -60,7 +60,7 @@ public:
       boost::get(boost::vertex_predecessor, graph_))
   {}
   
-  void Solve(
+  bool Solve(
     const std::vector<Vector3>& starts,
     const std::vector<Vector3>& goals)
   {
@@ -78,12 +78,12 @@ public:
     
     if (start_verts_.empty() || goal_verts_.empty()) {
       std::cout << "Unable to create path, missing start or goal." << std::endl;
-      return;
+      return false;
     }
 
     if (CheckSolution()) {
       std::cout << "Already connected, quitting early..." << std::endl;
-      return;
+      return true;
     }
     
     for (int i = 0; i < 100; ++i) {
@@ -97,12 +97,13 @@ public:
         
         if (CheckSolution()) {
           std::cout << "Found solution, done..." << std::endl;
-          return;
+          return true;
         }
       }
     }
     
     std::cout << "No solution" << std::endl;
+    return false;
   }
   
   std::vector<Vector3> Vertices() const

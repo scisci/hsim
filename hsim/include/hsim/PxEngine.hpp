@@ -396,7 +396,7 @@ public:
     assert(0);
   }
   
-  virtual ActorAgent* AddActor(const Actor& actor)
+  virtual ActorAgent* AddActor(const Actor& actor, bool disable_sim)
   {
     std::unique_ptr<PxActorAgent> agent;
     
@@ -415,6 +415,10 @@ public:
         body->setWakeCounter(0.4);
         physx::PxReal damp = body->getAngularDamping();
         body->setAngularDamping(0.005);
+        
+        if (disable_sim) {
+          body->setActorFlag(physx::PxActorFlag::eDISABLE_SIMULATION, true);
+        }
         
 
         const auto& shapes = subject.Shapes();

@@ -17,7 +17,7 @@ std::unique_ptr<htree::Tree> Project::GenerateTree()
   double container_ratio_xy = 0.5;
   double container_ratio_zy = 0.5;
   
-  int num_leaves = std::uniform_int_distribution<>(200, 400)(rng);
+  int num_leaves = std::uniform_int_distribution<>(80, 100)(rng); // 200 - 400
 
   htree::RandomBasicGenerator gen(ratio_source, container_ratio_xy, container_ratio_zy, num_leaves, seed_dist(rng));
   return gen.Generate();
@@ -34,7 +34,7 @@ htree::StringNodeAttributes Project::Attribute(const htree::Tree& tree)
   
   htree::EdgePathAttributer attributer(
     {{ .from = htree::EdgeName::kEdgeNameBottom, .to = htree::EdgeName::kEdgeNameTop },
-    /*{ .from = htree::EdgeName::kEdgeNameBottom, .to = htree::EdgeName::kEdgeNameTop }*/
+    { .from = htree::EdgeName::kEdgeNameLeft, .to = htree::EdgeName::kEdgeNameRight }
     },
     attr_chaos,
     seed_dist(rng),

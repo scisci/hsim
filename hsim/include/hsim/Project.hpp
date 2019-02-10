@@ -139,6 +139,9 @@ public:
     if (debug_agent_ != nullptr) {
       simulation_->RemoveActor(*debug_agent_);
     }
+    
+    curves.clear();
+    curve_verts.clear();
 
     for (auto& conn : conns_) {
       conn.disconnect();
@@ -158,6 +161,7 @@ public:
   
   void BuildFromSeed(int64_t seed)
   {
+    std::cout << "BuildFromSeed " << seed << std::endl;
     last_seed_ = seed;
     project_.Seed(last_seed_);
     std::unique_ptr<htree::Tree> tree = project_.GenerateTree();
@@ -168,12 +172,12 @@ public:
     
     Load();
     
-    Intersect();
+   // Intersect();
   }
   
   void Load()
   {
-    agent_ = simulation_->AddActor(*actor_.actor.get());
+    agent_ = simulation_->AddActor(*actor_.actor.get(), false);
     
     conns_.push_back(
       agent_->ConnectDidSleep(
@@ -202,6 +206,11 @@ public:
         std::cout << "Push back against " << rigid_actor->Mass() << std::endl;
         agent->AddImpulseAtLocalPos(Vector3(0, 0, mass * 0.2), Vector3(0, 2.0, 0));
       } else {
+        if (static_cast<const RigidBody&>(*actor_.actor.get()).Shapes().size() > 10) {
+          state_ = 4;
+        } else if (!Intersect()) {
+          state_ = 4;
+        }
         // Done
       }
     }
@@ -218,19 +227,19 @@ public:
     
     auto result = builder.Build();
     
-    simulation_->AddActor(*result.get());
+    simulation_->AddActor(*result.get(), false);
   }
   
-  void Intersect()
+  bool Intersect()
   {
     if (actor_.actor->Type() != kRigidDynamic && actor_.actor->Type() != kRigidStatic) {
-      return;
+      return false;
     }
     
     const RigidBody& rigid_body = static_cast<const RigidBody&>(*actor_.actor.get());
 
     const Real cat_radius = 0.125;
-    jump_solver_.Solve(rigid_body);
+    const bool result = jump_solver_.Solve(rigid_body);
     
     auto samples = jump_solver_.Vertices();
     auto paths = jump_solver_.Edges();
@@ -258,16 +267,16 @@ public:
     }
     
     auto actor = builder.Build();
-    debug_agent_ = simulation_->AddActor(*actor.get());
+    debug_agent_ = simulation_->AddActor(*actor.get(), true);
     
-    
+    return result;
   }
   
   IterationStatus Step()
   {
     float dt = 1.0f / 60.0f;
     sim_time_ += dt;
-    //simulation_->Step(dt);
+    simulation_->Step(dt);
     
     //character_->Move(Vector3(0.005, -9.8f / 60.0f, 0));
     
@@ -442,10 +451,10 @@ public:
     }
     
     const RigidBody& rigid_body = static_cast<const RigidBody&>(*actor_.actor.get());
-    
+    Real plan_scale = 0.5;
     std::ofstream plan_file;
     plan_file.open(directory + "/plan.txt");
-    PlanBuilder pbuild(PlanUnit::kInches, Handness::kRight);
+    PlanBuilder pbuild(PlanUnit::kInches, plan_scale, Handness::kRight);
     pbuild.Write(plan_file, rigid_body, actor_.color_map);
     plan_file.close();
   }

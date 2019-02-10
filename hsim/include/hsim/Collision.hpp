@@ -251,12 +251,14 @@ public:
   {
     physx::PxTransform tf = robot_tf_;
     tf.p += robot_shift_ + physx::PxVec3(pos.x(), pos.y(), pos.z());
-    
+    bool overlap = true;
     const std::vector<const Environment::Object> objects = environment_->Objects();
     for (auto it = objects.begin(); it != objects.end(); ++it) {
       if (physx::PxGeometryQuery::overlap(
           robot_geom_.any(), tf, it->px_geom.any(), it->px_transform)) {
         return true;
+      } else {
+        overlap = false;
       }
     }
     return false;
@@ -265,6 +267,10 @@ public:
   bool CheckCollision(const MotionPath& path) const
   {
     const Real length = path.Length();
+    
+    if (std::isnan(length)) {
+      assert(0);
+    }
     const size_t num_steps = ceil(length / max_step_size_);
     const Real step_size = length / num_steps;
     

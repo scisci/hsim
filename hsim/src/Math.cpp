@@ -32,7 +32,7 @@ void ToGLMatrix(const Matrix4& transform, float *out)
   }
 }
 
-AlignedBox TransformAlignedBox(const AlignedBox& geom_box, const Transform& t)
+AlignedBox TransformAlignedBox(const AlignedBox& geom_box, const AffineTransform& t)
 {
   AlignedBox box;
   box.extend(t * geom_box.corner(AlignedBox::CornerType::TopLeftFloor));

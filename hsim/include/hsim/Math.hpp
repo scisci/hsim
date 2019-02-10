@@ -43,7 +43,7 @@ void ToGLMatrix(const Matrix4& transform, float *out);
 
 AlignedBox TransformAlignedBox(
     const AlignedBox& geom_box,
-    const Transform& t);
+    const AffineTransform& t);
 
 struct Ray {
   Ray()

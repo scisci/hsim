@@ -336,7 +336,7 @@ private:
 class Simulation {
 public:
   virtual ~Simulation() {}
-  virtual ActorAgent* AddActor(const Actor& actor) = 0;
+  virtual ActorAgent* AddActor(const Actor& actor, bool disable_sim) = 0;
   virtual void RemoveActor(const ActorAgent& actor_agent) = 0;
   virtual Character* AddCharacter(Real radius, Real height) = 0;
   virtual void RemoveCharacter(const Character& character) = 0;

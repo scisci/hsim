@@ -210,6 +210,11 @@ public:
     const Vector3 dif = p1 - p0;
     // Rotate points along up axis onto 2d plane defined by theta
     const Real theta = atan2(dif(InIdx), dif(RtIdx));
+    /*
+    if (dif(InIdx) == 0.0 && dif(RtIdx) == 0) {
+      std::cout << "jump in y only" << std::endl;
+    }
+    */
     const Real x_theta0 = cos(theta) * p0(RtIdx) + sin(theta) * p0(InIdx);
     const Real x_theta1 = cos(theta) * p1(RtIdx) + sin(theta) * p1(InIdx);
     const Real width = cos(theta) * dif(RtIdx) + sin(theta) * dif(InIdx);
@@ -250,7 +255,8 @@ public:
     
     // The angle from the start point to end point against x axis
     // alpha cannot be less than this obviously
-    const Real alpha_inf4 = atan(dif(UpIdx) / width);
+    // In the case of a vertical jump its always 90 degrees
+    const Real alpha_inf4 = width == 0.0 ? M_PI / 2 : atan(dif(UpIdx) / width);
     
     // Subtracting PI essentially inverts the cone which puts the normal
     // in line with the parabola trajectory
@@ -316,6 +322,9 @@ public:
         std::min(alpha_lim_plus, alpha_imp_sup));
     }
     
+    // TODO: a perfectly vertical jump fails here because the above alpha_inf_bound
+    // has alpha_ added to it which will make it slightly larger than the
+    // sup_bound
     if (alpha_inf_bound > alpha_sup_bound) {
       // constraints intersection is empty
       return result;
@@ -404,6 +413,11 @@ private:
     // to solve for tan(alpha)
     // if discriminant is < 0 there is no solution
     
+    // If width is 0 it is just a vertical jump so only 2 possible angles
+    if (width == 0.0) {
+      return std::make_tuple(M_PI / 2, M_PI / 2, true);
+    }
+    
     const Real a = gravity_ * width * width;
     const Real b = -2 * width * vel0_max_ * vel0_max_;
     const Real c = gravity_ * width * width + 2 * up_offset * vel0_max_ * vel0_max_;
@@ -431,6 +445,12 @@ private:
     Real alpha_imp_max,
     Real n1_angle) const
   {
+    // If width is 0 it is just a vertical jump so only 2 possible angles
+    // TODO: should we check against alpha_imp in this case?
+    if (width == 0.0) {
+      return std::make_tuple(M_PI / 2, M_PI / 2, true);
+    }
+    
     if (width > 0) {
       if (n1_angle > 0) {
         if (alpha_imp_max > -M_PI / 2) {
@@ -463,6 +483,11 @@ private:
   
   std::tuple<Real, Real, bool> TestSixthConstraint(Real width, Real up_offset) const
   {
+    // If width is 0 it is just a vertical jump so only 2 possible angles
+    if (width == 0.0) {
+      return std::make_tuple(M_PI / 2, M_PI / 2, true);
+    }
+    
     const Real a = gravity_ * width * width;
     const Real b = -2 * width * vel1_max_ * vel1_max_ -
       4 * width * up_offset * gravity_;

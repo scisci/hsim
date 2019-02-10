@@ -427,8 +427,9 @@ void renderActor(const hsim::RigidBody& actor)
       }
       if(sleeping)
 			{
-				PxVec3 darkColor = mycolor * 0.25f;
-				glColor4f(darkColor.x, darkColor.y, darkColor.z, 1.0f);
+				//PxVec3 darkColor = mycolor * 0.25f;
+				//glColor4f(darkColor.x, darkColor.y, darkColor.z, 1.0f);
+    glColor4f(mycolor.x, mycolor.y, mycolor.z, 1.0f);
 			}
 			else {
         

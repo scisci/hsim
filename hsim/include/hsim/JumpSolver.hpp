@@ -42,7 +42,7 @@ public:
    planner_(&sampler_, steerer_, validator_)
   {}
   
-  void Solve(const RigidBody& body)
+  bool Solve(const RigidBody& body)
   {
     // We reuse these structures so we need to clear them
     enviro_.Clear();
@@ -56,7 +56,7 @@ public:
     std::vector<Vector3> start_points = SelectStartPoints(sample_space);
     std::vector<Vector3> goal_points = SelectGoalPoints(sample_space);
     
-    planner_.Solve(start_points, goal_points);
+    return planner_.Solve(start_points, goal_points);
 
   }
   
