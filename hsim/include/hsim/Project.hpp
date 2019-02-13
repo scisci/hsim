@@ -83,17 +83,6 @@ enum IterationStatus {
   kFailed
 };
 
-class ColorMap {
-public:
-  
-  const Color& At(size_t index) const
-  {
-    
-  }
-  
-private:
-  std::vector<Color> colors_;
-};
 
 class Iteration : public RenderDecorator {
 public:
@@ -104,7 +93,8 @@ public:
     sim_time_(0.0),
     debug_agent_(nullptr),
     //right_(true),
-    last_seed_(0)
+    last_seed_(0),
+    max_boxes_(1000)
   {
     //character_ = simulation_->AddCharacter(0.1, 0.5);
     //character_->SetPosition(Vector3(-10.0, 0.0, 0.0));
@@ -206,7 +196,7 @@ public:
         std::cout << "Push back against " << rigid_actor->Mass() << std::endl;
         agent->AddImpulseAtLocalPos(Vector3(0, 0, mass * 0.2), Vector3(0, 2.0, 0));
       } else {
-        if (static_cast<const RigidBody&>(*actor_.actor.get()).Shapes().size() > 10) {
+        if (static_cast<const RigidBody&>(*actor_.actor.get()).Shapes().size() > max_boxes_) {
           state_ = 4;
         } else if (!Intersect()) {
           state_ = 4;
@@ -473,6 +463,7 @@ private:
   int64_t last_seed_;
   hsim::Project project_;
   std::random_device rd_;
+  std::size_t max_boxes_;
 };
 
 
