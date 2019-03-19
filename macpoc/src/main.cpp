@@ -64,10 +64,9 @@ static hsim::Handness handness = hsim::Handness::kRight;
   
 
 hsim::PxEngine *sEngine;
-bool requested_path = false;
 std::vector<unsigned char> pixel_data;
 std::string save_path;
-std::unique_ptr<hsim::Iteration> sIteration;
+std::unique_ptr<hsim::ProjectInstance> sIteration;
 
 GLuint FramebufferName;
 GLuint RenderbufferName;
@@ -247,17 +246,9 @@ void renderCallback()
     Snippets::renderActors(&actors[0], static_cast<physx::PxU32>(actors.size()), true, *sIteration.get());
   }
   
+  sIteration->DrawExtras();
   
-  for (auto& curve : sIteration->curves) {
-    glBegin(GL_LINE_STRIP);
   
-    for (int i = curve.start_index; i < curve.end_index; ++i) {
-      auto& vertex = sIteration->curve_verts[i];
-      glVertex3f(vertex.x(), vertex.y(), vertex.z());
-    }
-    glEnd();
-  }
-
 
   
   
@@ -282,7 +273,8 @@ void renderLoop()
   
   
   sEngine = new hsim::PxEngine();
-  sIteration.reset(new hsim::Iteration(*sEngine));
+  //sIteration.reset(new hsim::Iteration(*sEngine));
+  sIteration.reset(new hsim::CompositionDesigner(*sEngine));
   sIteration->Next();
   
   

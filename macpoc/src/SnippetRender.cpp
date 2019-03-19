@@ -410,6 +410,7 @@ void renderActor(const hsim::RigidBody& actor)
 			const PxMat44 shapePose(PxShapeExt::getGlobalPose(*shapes[j], *actors[i]));
 			PxGeometryHolder h = shapes[j]->getGeometry();
 
+
 			if (shapes[j]->getFlags() & PxShapeFlag::eTRIGGER_SHAPE)
 				glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
 			
@@ -435,7 +436,25 @@ void renderActor(const hsim::RigidBody& actor)
         
 				glColor4f(mycolor.x, mycolor.y, mycolor.z, 1.0f);
       }
-			renderGeometry(h);
+      
+      
+   glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+glPushMatrix();
+renderGeometry(h);
+glPopMatrix();
+// draw the wireframe
+glLineWidth( 1.0f );
+glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+glEnable( GL_POLYGON_OFFSET_LINE );
+
+glPolygonOffset( -0.1, -0.1);    // Shift depth values
+
+glColor3f( 0.0f, 0.0f, 0.0f );
+renderGeometry(h);
+      glDisable( GL_POLYGON_OFFSET_LINE );
+ 
+      
+			
 			glPopMatrix();
 
 			glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );

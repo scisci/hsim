@@ -9,7 +9,7 @@
 #include "htree/RandomBasicGenerator.hpp"
 #include "htree/RegionIterator.hpp"
 #include "htree/EdgePathAttributer.hpp"
-
+#include "htree/TreeBuilder.hpp"
 
 #include "hsim/Tess.hpp"
 
@@ -20,6 +20,19 @@
 #include <memory>
 #include <iostream>
 #include <fstream>
+
+// Below is temporary only for DrawExtras code which will be reomved
+#if PX_WINDOWS
+#include <windows.h>
+#pragma warning(disable: 4505)
+#include <glut.h>
+#elif PX_LINUX_FAMILY
+#include <GL/glut.h>
+#elif PX_OSX
+#include <GLUT/glut.h>
+#else
+#error platform not supported.
+#endif
 
 namespace hsim {
 
@@ -77,14 +90,59 @@ private:
 };
 
 
+
+class CompositionProject {
+public:
+  CompositionProject()
+  :seed_(0),
+   rng(seed_)
+  {}
+  
+  virtual ~CompositionProject() {}
+  
+  void Seed(int64_t seed)
+  {
+    seed_ = seed;
+    rng.seed(seed_);
+  }
+  
+  int64_t LastSeed() const
+  {
+    return seed_;
+  }
+  std::unique_ptr<htree::Tree> GenerateTree();
+  
+  ActorContainer CreateActor(
+    const htree::Tree& tree,
+    Handness handness);
+  
+  
+private:
+  
+  int64_t seed_;
+  std::mt19937_64 rng;
+};
+
+
 enum IterationStatus {
   kIncomplete,
   kComplete,
   kFailed
 };
 
+class ProjectInstance : public RenderDecorator {
+public:
+  virtual ~ProjectInstance() {}
+  virtual void Retry() = 0;
+  virtual void Clear() = 0;
+  virtual void Next() = 0;
+  virtual void Open(const std::string& path) = 0;
+  virtual void Write(const std::string& directory) = 0;
+  virtual void DrawExtras() = 0;
+  virtual IterationStatus Step() = 0;
+};
 
-class Iteration : public RenderDecorator {
+class Iteration : public ProjectInstance {
 public:
   Iteration(PhysicsEngine& engine)
   : simulation_(engine.CreateSimulation()),
@@ -103,7 +161,7 @@ public:
   std::vector<Curve> curves;
   std::vector<hsim::Vector3> curve_verts;
   
-  void Retry()
+  virtual void Retry()
   {
     Clear();
     Load();
@@ -118,7 +176,7 @@ public:
     return nullptr;
   }
   
-  void Clear()
+  virtual void Clear()
   {
     if (agent_ == nullptr) {
       return;
@@ -143,7 +201,7 @@ public:
     sim_time_ = 0;
   }
   
-  void Next()
+  virtual void Next()
   {
     Clear();
     BuildFromSeed(rd_());
@@ -174,6 +232,20 @@ public:
         std::bind(&Iteration::HandleSleepCallback, this, agent_)));
   }
   
+  // This is only to satisfy the fact that the structure is loose now, should
+  // not have graphics code here
+  virtual void DrawExtras()
+  {
+    for (auto& curve : curves) {
+      glBegin(GL_LINE_STRIP);
+    
+      for (int i = curve.start_index; i < curve.end_index; ++i) {
+        auto& vertex = curve_verts[i];
+        glVertex3f(vertex.x(), vertex.y(), vertex.z());
+      }
+      glEnd();
+    }
+  }
   
   void HandleSleepCallback(hsim::ActorAgent *agent)
   {
@@ -262,7 +334,7 @@ public:
     return result;
   }
   
-  IterationStatus Step()
+  virtual IterationStatus Step()
   {
     float dt = 1.0f / 60.0f;
     sim_time_ += dt;
@@ -283,7 +355,7 @@ public:
     }
   }
   
-  void Open(const std::string& path)
+  virtual void Open(const std::string& path)
   {
     std::ifstream proj_file;
     proj_file.open(path);
@@ -295,7 +367,7 @@ public:
     BuildFromSeed(seed);
   }
   
-  void Write(const std::string& directory)
+  virtual void Write(const std::string& directory)
   {
     // Take our actor and tesselate and write it
     if (actor_.actor == nullptr) {
@@ -465,6 +537,150 @@ private:
   std::random_device rd_;
   std::size_t max_boxes_;
 };
+
+
+
+
+
+
+
+
+class CompositionDesigner : public ProjectInstance {
+public:
+  CompositionDesigner(PhysicsEngine& engine)
+  : simulation_(engine.CreateSimulation()),
+    agent_(nullptr),
+    state_(0),
+    sim_time_(0.0),
+    debug_agent_(nullptr),
+    last_seed_(0),
+    max_boxes_(1000)
+  {}
+
+  virtual void Retry()
+  {
+    Clear();
+    Load();
+  }
+  
+  virtual const std::vector<Color>* ActorColorMap(const Actor& actor) const
+  {
+    if (&actor == actor_.actor.get()) {
+      return &actor_.color_map;
+    }
+    
+    return nullptr;
+  }
+  
+  virtual void Clear()
+  {
+    if (agent_ == nullptr) {
+      return;
+    }
+    
+    simulation_->RemoveActor(*agent_);
+    
+    if (debug_agent_ != nullptr) {
+      simulation_->RemoveActor(*debug_agent_);
+    }
+    
+    agent_ = nullptr;
+    debug_agent_ = nullptr;
+    state_ = 0;
+    sim_time_ = 0;
+  }
+  
+  virtual void Next()
+  {
+    Clear();
+    BuildFromSeed(rd_());
+  }
+  
+  void BuildFromSeed(int64_t seed)
+  {
+    std::cout << "BuildFromSeed " << seed << std::endl;
+    last_seed_ = seed;
+    
+
+    project_.Seed(last_seed_);
+    std::unique_ptr<htree::Tree> tree = project_.GenerateTree();
+
+    Handness handness = Handness::kRight;
+    actor_ = project_.CreateActor(*tree.get(), handness);
+    
+    
+    Load();
+  }
+  
+  void Load()
+  {
+    agent_ = simulation_->AddActor(*actor_.actor.get(), false);
+  }
+  
+  // This is only to satisfy the fact that the structure is loose now, should
+  // not have graphics code here
+  virtual void DrawExtras()
+  {
+  }
+  
+  
+  
+  virtual IterationStatus Step()
+  {
+    return kIncomplete;
+  }
+  
+  virtual void Open(const std::string& path)
+  {
+    
+    std::ifstream proj_file;
+    proj_file.open(path);
+    
+    int64_t seed;
+    proj_file >> seed;
+
+    Clear();
+    BuildFromSeed(seed);
+    
+  }
+  
+  virtual void Write(const std::string& directory)
+  {
+    // Take our actor and tesselate and write it
+    if (actor_.actor == nullptr) {
+      return;
+    }
+    
+    if (actor_.actor->Type() != kRigidDynamic && actor_.actor->Type() != kRigidStatic) {
+      return;
+    }
+    
+    const RigidActor& rigid_actor = static_cast<const RigidActor&>(*actor_.actor.get());
+    
+    
+    // First lets write the project which is just the seed
+    std::ofstream proj_file;
+    proj_file.open(directory + "/project.txt");
+    proj_file << last_seed_;
+    proj_file << std::endl;
+    proj_file.close();
+    
+  }
+  
+private:
+  std::unique_ptr<Simulation> simulation_;
+  ActorContainer actor_;
+  hsim::CompositionProject project_;
+  ActorAgent *agent_;
+  int state_;
+  float sim_time_;
+  ActorAgent *debug_agent_;
+  //bool right_;
+  int64_t last_seed_;
+  std::random_device rd_;
+  std::size_t max_boxes_;
+};
+
 
 
 } // namespace hsim

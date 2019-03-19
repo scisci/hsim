@@ -151,4 +151,106 @@ ActorContainer Project::CreateActor(const htree::Tree& tree, const htree::String
 }
 
 
+
+std::unique_ptr<htree::Tree> CompositionProject::GenerateTree()
+{
+  std::uniform_int_distribution<int64_t> seed_dist(0, std::numeric_limits<int64_t>::max());
+  htree::RatioSourcePtr ratio_source(new htree::golden::GoldenRatioSource());
+  
+  htree::Complements complements = htree::MakeComplements(ratio_source->Ratios(), 0.0000001);
+
+  //int num_leaves = std::uniform_int_distribution<>(100, 200)(rng); // 200 - 400
+  htree::ratio_index_t index = htree::FindClosestIndex(ratio_source->Ratios(), 5.236);
+  htree::TreeBuilder builder(ratio_source, index);
+  double intro = 10.0;
+  double ending = 28.0;
+  double duration = 45.0;
+  
+  std::vector<double> positions = {intro / duration, ending / duration};
+  bool result = htree::SectionLeaf(builder, *builder.Leaves()[0], htree::Axis::X, positions, 0.0000001);
+  assert(result);
+  for (int i = 0; i < 100; ++i) {
+    htree::SplitRandomLeaf(builder, complements, rng, 0.0000001);
+  }
+  return builder.Build();
+}
+  
+  
+
+ActorContainer CompositionProject::CreateActor(const htree::Tree& tree, Handness handness)
+{
+  ActorContainer container;
+  Real height_meters = 2.0;
+  Real scale = height_meters / 1.0;
+  htree::Vector origin(0.0, 0.0, 0.0);
+  htree::RegionIterator rit(tree, origin, scale);
+  
+  hsim::RigidBodyBuilder builder;
+  Real density = 737.0; // Fir kg/m3
+  
+  // Set to Wood on Wood
+  builder.SetMaterial({
+    .restitution = 0.6,
+    .static_friction = 0.25,
+    .kinetic_friction = 0.2});
+  /*
+  for (int i = 0; i < 4; i++) {
+    Transform transform = Transform::Identity();
+    transform.translation() = Vector3(1.0 * i,3.0, 0.0 * i);
+    builder.AddShape(std::unique_ptr<Geometry>(
+      new Box(
+        0.5,
+        0.5,
+        1.0)),
+      density,
+      transform);
+  }*/
+  
+  std::uniform_int_distribution<int64_t> color_dist(0, Colors::all.size() - 1);
+  std::unordered_map<htree::ratio_index_t, Color> cm;
+  while (rit.HasNext()) {
+    htree::NodeRegion node_region = rit.Next();
+    if (node_region.node->Branch() != nullptr) {
+      continue;
+    }
+    
+    const htree::AlignedBox& box = node_region.region.AlignedBox();
+    Transform transform = Transform::Identity();
+    transform.translation() = box.center();
+    
+    // Convert left handed to right handed
+    if (handness == Handness::kRight) {
+      transform.translation()[InIdx] = -transform.translation()[InIdx];
+    }
+    
+    // For the case of 2d
+    Real depth = htree::AlignedBoxDepth(box);
+    if (depth < 0.0000001) {
+      assert(!htree::IsRatioIndexDefined(tree.RatioIndexZY()));
+      depth = 1.0;
+    }
+    
+    builder.AddShape(std::unique_ptr<Geometry>(
+      new Box(
+        htree::AlignedBoxWidth(box),
+        htree::AlignedBoxHeight(box),
+        depth)),
+      density,
+      transform);
+    
+    htree::ratio_index_t r = node_region.region.RatioIndexXY();
+    auto it = cm.find(r);
+    if (it == cm.end()) {
+      it = cm.insert(std::make_pair(r, Colors::all[color_dist(rng)])).first;
+    }
+    container.color_map.push_back(it->second);
+  }
+  
+  container.actor = builder.Build();
+  return container;
+  
+}
+
+
+
 } // namespace hsim
