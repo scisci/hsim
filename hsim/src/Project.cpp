@@ -155,9 +155,20 @@ ActorContainer Project::CreateActor(const htree::Tree& tree, const htree::String
 std::unique_ptr<htree::Tree> CompositionProject::GenerateTree()
 {
   std::uniform_int_distribution<int64_t> seed_dist(0, std::numeric_limits<int64_t>::max());
-  htree::RatioSourcePtr ratio_source(new htree::golden::GoldenRatioSource());
+  std::shared_ptr<htree::golden::GoldenRatioSource> ratio_source(new htree::golden::GoldenRatioSource());
   
-  htree::Complements complements = htree::MakeComplements(ratio_source->Ratios(), 0.0000001);
+  htree::Complements complements = htree::MakeComplements(ratio_source->Core(), 0.0000001);
+  auto usage = htree::FindRatioUsage(complements);
+  for (auto& entry : usage) {
+    std::cout << ratio_source->Ratios()[entry.index] << " : " << entry.count << std::endl;;
+  }
+  
+  auto rm = htree::RatioGroup(ratio_source->Ratios());
+  for (double a = -1.0; a < 20.0; a+= 0.01) {
+    htree::ratio_index_t x = htree::FindClosestIndex(ratio_source->Ratios(), a);
+    htree::ratio_index_t y = htree::FindClosestIndex(rm, a);
+    assert(x == y);
+  }
 
   //int num_leaves = std::uniform_int_distribution<>(100, 200)(rng); // 200 - 400
   htree::ratio_index_t index = htree::FindClosestIndex(ratio_source->Ratios(), 5.236);
@@ -167,7 +178,7 @@ std::unique_ptr<htree::Tree> CompositionProject::GenerateTree()
   double duration = 45.0;
   
   std::vector<double> positions = {intro / duration, ending / duration};
-  bool result = htree::SectionLeaf(builder, *builder.Leaves()[0], htree::Axis::X, positions, 0.0000001);
+  bool result = htree::SectionLeaf(builder, complements, *builder.Leaves()[0], htree::Axis::X, positions, 0.0000001);
   assert(result);
   for (int i = 0; i < 100; ++i) {
     htree::SplitRandomLeaf(builder, complements, rng, 0.0000001);
