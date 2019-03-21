@@ -170,7 +170,6 @@ std::unique_ptr<htree::Tree> CompositionProject::GenerateTree()
     assert(x == y);
   }
 
-  //int num_leaves = std::uniform_int_distribution<>(100, 200)(rng); // 200 - 400
   htree::ratio_index_t index = htree::FindClosestIndex(ratio_source->Ratios(), 5.236);
   htree::TreeBuilder builder(ratio_source, index);
   double intro = 10.0;
@@ -180,13 +179,34 @@ std::unique_ptr<htree::Tree> CompositionProject::GenerateTree()
   std::vector<double> positions = {intro / duration, ending / duration};
   bool result = htree::SectionLeaf(builder, complements, *builder.Leaves()[0], htree::Axis::X, positions, 0.0000001);
   assert(result);
+  
+  auto timestamps = SortByTimestamp(*builder.Build().get(), duration, 1000.0);
+  
   for (int i = 0; i < 100; ++i) {
     htree::SplitRandomLeaf(builder, complements, rng, 0.0000001);
   }
   return builder.Build();
 }
   
+std::map<int64_t, std::vector<htree::NodeID>> SortByTimestamp(
+  const htree::Tree &tree, double duration_secs, double scale)
+{
+  std::map<int64_t, std::vector<htree::NodeID>> timecodes;
+  double sec_scale = duration_secs /
+    tree.RatioSource()->Ratios()[tree.RatioIndexXY()];
   
+  htree::RegionIterator rit(tree, htree::Vector(0, 0, 0), sec_scale);
+  std::vector<htree::Region> regions;
+  while (rit.HasNext()) {
+    auto node = rit.Next();
+    if (node.node->Branch() == nullptr) {
+      int64_t timestamp = node.region.AlignedBox().min()[0] * scale + 0.5;
+      timecodes[timestamp].push_back(node.node->ID());
+    }
+  }
+  return timecodes;
+}
+
 
 ActorContainer CompositionProject::CreateActor(const htree::Tree& tree, Handness handness)
 {
@@ -217,8 +237,10 @@ ActorContainer CompositionProject::CreateActor(const htree::Tree& tree, Handness
       transform);
   }*/
   
+ 
   std::uniform_int_distribution<int64_t> color_dist(0, Colors::all.size() - 1);
   std::unordered_map<htree::ratio_index_t, Color> cm;
+  std::set<int64_t> used_colors;
   while (rit.HasNext()) {
     htree::NodeRegion node_region = rit.Next();
     if (node_region.node->Branch() != nullptr) {
@@ -252,7 +274,13 @@ ActorContainer CompositionProject::CreateActor(const htree::Tree& tree, Handness
     htree::ratio_index_t r = node_region.region.RatioIndexXY();
     auto it = cm.find(r);
     if (it == cm.end()) {
-      it = cm.insert(std::make_pair(r, Colors::all[color_dist(rng)])).first;
+      std::size_t color_index = color_dist(rng);
+      while (used_colors.find(color_index) != used_colors.end()) {
+        color_index = color_dist(rng);
+      }
+      auto color = Colors::all[color_index];
+      used_colors.insert(color_index);
+      it = cm.insert(std::make_pair(r, color)).first;
     }
     container.color_map.push_back(it->second);
   }

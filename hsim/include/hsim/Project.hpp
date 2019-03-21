@@ -540,9 +540,46 @@ private:
 
 
 
+struct Timecode {
+  Timecode()
+  :hours(0),
+   minutes(0),
+   seconds(0),
+   millis(0)
+  {}
+  
+  Timecode(double secs)
+  {
+    int total = secs * 1000 + 0.5;
+    hours = total / 3600000;
+    minutes = (total - hours * 3600000) / 60000;
+    seconds = (total - hours * 3600000 - minutes * 60000) / 1000;
+    millis = total % 1000;
+  }
+  
+  Timecode(int64_t ms)
+  :hours(ms / 3600000),
+   minutes((ms - hours * 3600000) / 60000),
+   seconds((ms - hours * 3600000 - minutes * 60000) / 1000),
+   millis(ms % 1000)
+  {}
+  
+  int hours;
+  int minutes;
+  int seconds;
+  int millis;
+};
 
 
 
+struct TimecodeGroup {
+  Timecode timecode;
+  std::vector<htree::NodeID> ids;
+};
+
+
+std::map<int64_t, std::vector<htree::NodeID>> SortByTimestamp(
+  const htree::Tree &tree, double duration_secs, double scale);
 
 
 class CompositionDesigner : public ProjectInstance {
@@ -657,6 +694,8 @@ public:
     
     const RigidActor& rigid_actor = static_cast<const RigidActor&>(*actor_.actor.get());
     
+    project_.Seed(last_seed_);
+    std::unique_ptr<htree::Tree> tree = project_.GenerateTree();
     
     // First lets write the project which is just the seed
     std::ofstream proj_file;
@@ -664,6 +703,132 @@ public:
     proj_file << last_seed_;
     proj_file << std::endl;
     proj_file.close();
+    
+    auto tc = Timecode(37482.3232);
+    assert(tc.hours == 10 && tc.minutes == 24 && tc.seconds == 42 && tc.millis == 323);
+    tc = Timecode(61.300);
+    assert(tc.hours == 0 && tc.minutes == 1 && tc.seconds == 1 && tc.millis == 300);
+    tc = Timecode(59.9999);
+    assert(tc.hours == 0 && tc.minutes == 1 && tc.seconds == 0 && tc.millis == 0);
+    tc = Timecode(121.3882);
+    assert(tc.hours == 0 && tc.minutes == 2 && tc.seconds == 1 && tc.millis == 388);
+    tc = Timecode(121.3882);
+    assert(tc.hours == 0 && tc.minutes == 2 && tc.seconds == 1 && tc.millis == 388);
+    
+    // Convert to milliseconds
+    double duration = 45.0;
+    auto timestamps = SortByTimestamp(*tree.get(), duration * 60.0, 1000.0);
+    
+    // Write each timestamp to csv
+    std::ofstream csv_file;
+    csv_file.open(directory + "/timestamps.csv");
+    csv_file << "Scene Number,Timecode,Node Id\n";
+    int scene_num = 1;
+    for (const auto &entry : timestamps) {
+      csv_file << (scene_num++) << ",";
+      
+     
+      Timecode tc(entry.first);
+      csv_file << std::setfill('0') << std::setw(2) << tc.hours << ":";
+      csv_file << std::setfill('0') << std::setw(2) << tc.minutes << ":";
+      csv_file << std::setfill('0') << std::setw(2) << tc.seconds << ".";
+      csv_file << std::setfill('0') << std::setw(3) << tc.millis;
+      csv_file << ",";
+      
+       bool first = true;
+      for (auto &id : entry.second) {
+        if (first) {
+          first = false;
+        } else {
+          csv_file << "+";
+        }
+        csv_file << id;
+      }
+      csv_file << "\n";
+      
+    }
+    csv_file.close();
+    
+    double ratio = tree->RatioSource()->Ratios()[tree->RatioIndexXY()];
+    double psscale = 100.0;
+    double width = psscale * ratio;
+    double height = 1 * psscale;
+    double border = 2.0;
+    double top_border = 50.0;
+    std::ofstream ps_file;
+    ps_file.open(directory + "/map.eps");
+    ps_file << "%%!PS-Adobe-3.0 EPSF-3.0\n";
+    ps_file << "%%Creator: Dan Riley\n";
+    ps_file << "%%BoundingBox: " << -border << " " << -border << " " << (width + border * 2) << " " << (height + top_border + border * 2) << "\n";
+
+    ps_file << "0.5 setlinewidth\n";
+    ps_file << "0 0 0 setrgbcolor\n";
+    htree::RegionIterator rit(*tree.get(), htree::Vector(0.0, 0.0, 0), psscale);
+    while (rit.HasNext()) {
+      auto rn = rit.Next();
+      if (rn.node->Branch() == nullptr) {
+        const htree::AlignedBox &box = rn.region.AlignedBox();
+        htree::Vector min = box.min();
+        htree::Vector max = box.max();
+        ps_file << min.x() << " " << min.y() << " newpath moveto\n";
+        ps_file << min.x() << " " << max.y() << " lineto\n";
+        ps_file << max.x() << " " << max.y() << " lineto\n";
+        ps_file << max.x() << " " << min.y() << " lineto\n";
+        ps_file << min.x() << " " << min.y() << " lineto\n";
+        ps_file << "stroke\n";
+      }
+    }
+    
+    ps_file << "0 0 1 setrgbcolor\n";
+    rit = htree::RegionIterator (*tree.get(), htree::Vector(0.0, 0.0, 0), psscale);
+    while (rit.HasNext()) {
+      auto rn = rit.Next();
+      if (rn.node->Branch() == nullptr) {
+        const htree::AlignedBox &box = rn.region.AlignedBox();
+        htree::Vector min = box.min();
+        htree::Vector max = box.max();
+        ps_file << "/Arial findfont\n3 scalefont\nsetfont\nnewpath\n";
+        ps_file << box.center().x() << " " << box.center().y() << " moveto ";
+        ps_file << "(" << rn.node->ID() << "-" << rn.region.RatioIndexXY() << ") dup stringwidth pop 2 div neg 0 rmoveto show\n";
+      }
+    }
+    
+    // Draw on scene numbers
+    ps_file << "0 0 0 setrgbcolor\n";
+    scene_num = 1;
+    for (const auto &entry : timestamps) {
+      Timecode tc(entry.first);
+      double pos = (entry.first * ratio * psscale) / (duration * 60.0 * 1000.0);
+      double line_start = psscale + 2.0;
+      double line_end = psscale + 2.0 + (top_border - 2.0) * ((12 - scene_num % 12) / 12.0);
+      ps_file << pos << " " << line_start << " newpath moveto\n";
+      ps_file << pos << " " << line_end << " lineto\n";
+      ps_file << "stroke\n";
+      scene_num++;
+    }
+    
+    ps_file << "1 0 0 setrgbcolor\n";
+    scene_num = 1;
+    for (const auto &entry : timestamps) {
+      Timecode tc(entry.first);
+      double pos = (entry.first * ratio * psscale) / (duration * 60.0 * 1000.0);
+      double line_start = psscale + 2.0;
+      double line_end = psscale + 2.0 + (top_border - 2.0) * ((12 - scene_num % 12) / 12.0);
+      
+      ps_file << "/Arial findfont\n3 scalefont\nsetfont\nnewpath\n";
+      ps_file << (pos + 2) << " " << (line_end - 2) << " moveto ";
+      ps_file << "(" << scene_num << " ";
+      ps_file << std::setfill('0') << std::setw(2) << tc.hours << ":";
+      ps_file << std::setfill('0') << std::setw(2) << tc.minutes << ":";
+      ps_file << std::setfill('0') << std::setw(2) << tc.seconds;
+      ps_file << ") show\n";
+      scene_num++;
+    }
+    
+    ps_file << "\n\n";
+    ps_file << "%%EOF\n";
+    ps_file.close();
+  
     
   }
   
