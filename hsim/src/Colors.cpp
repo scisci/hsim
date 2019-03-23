@@ -7,7 +7,62 @@
 
 #include "hsim/Colors.hpp"
 
+#include <array>
+#include <cmath>
+
 namespace hsim {
+
+std::array<double, 3> Color2Lab(const Color &color)
+{
+  
+  double r = color.Red() / 255.0;
+  double g = color.Green() / 255.0;
+  double b = color.Blue() / 255.0;
+  double x, y, z;
+  r = (r > 0.04045) ? pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+  g = (g > 0.04045) ? pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+  b = (b > 0.04045) ? pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+  x = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047;
+  y = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 1.00000;
+  z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+  x = (x > 0.008856) ? pow(x, 1.0/3.0) : (7.787 * x) + 16.0/116.0;
+  y = (y > 0.008856) ? pow(y, 1.0/3.0) : (7.787 * y) + 16.0/116.0;
+  z = (z > 0.008856) ? pow(z, 1.0/3.0) : (7.787 * z) + 16.0/116.0;
+  
+  return std::array<double, 3>({(116 * y) - 16, 500 * (x - y), 200 * (y - z)});
+}
+
+// calculate the perceptual distance between colors in CIELAB
+// https://github.com/THEjoezack/ColorMine/blob/master/ColorMine/ColorSpaces/Comparisons/Cie94Comparison.cs
+/*
+<= 1.0  Not perceptible by human eyes.
+1 - 2  Perceptible through close observation.
+2 - 10  Perceptible at a glance.
+11 - 49  Colors are more similar than opposite
+100  Colors are exact opposite
+*/
+double Color::Diff(const Color &lhs, const Color &rhs)
+{
+  std::array<double, 3> lhs_lab = Color2Lab(lhs);
+  std::array<double, 3> rhs_lab = Color2Lab(rhs);
+
+  double delta_l = lhs_lab[0] - rhs_lab[0];
+  double delta_a = lhs_lab[1] - rhs_lab[1];
+  double delta_b = lhs_lab[2] - rhs_lab[2];
+  double c1 = sqrt(lhs_lab[1] * lhs_lab[1] + lhs_lab[2] * lhs_lab[2]);
+  double c2 = sqrt(rhs_lab[1] * rhs_lab[1] + rhs_lab[2] * rhs_lab[2]);
+  double delta_c = c1 - c2;
+  double delta_h = delta_a * delta_a + delta_b * delta_b - delta_c * delta_c;
+  delta_h = delta_h < 0 ? 0 : sqrt(delta_h);
+  double sc = 1.0 + 0.045 * c1;
+  double sh = 1.0 + 0.015 * c1;
+  double delta_lklsl = delta_l / 1.0;
+  double delta_ckcsc = delta_c / sc;
+  double delta_hkhsh = delta_h / sh;
+  return sqrt(delta_lklsl * delta_lklsl + delta_ckcsc * delta_ckcsc + delta_hkhsh * delta_hkhsh);
+}
+
+
 
 const std::vector<Color> Colors::all = {
   Color("Black", 0x000000),

@@ -238,9 +238,12 @@ ActorContainer CompositionProject::CreateActor(const htree::Tree& tree, Handness
   }*/
   
  
-  std::uniform_int_distribution<int64_t> color_dist(0, Colors::all.size() - 1);
+  std::uniform_int_distribution<int64_t> color_dist(0, std::numeric_limits<int64_t>::max());
   std::unordered_map<htree::ratio_index_t, Color> cm;
   std::set<int64_t> used_colors;
+  std::vector<size_t> possible_colors(Colors::all.size());
+  std::iota(possible_colors.begin(), possible_colors.end(), 0);
+  double max_color_dist = 15.0;
   while (rit.HasNext()) {
     htree::NodeRegion node_region = rit.Next();
     if (node_region.node->Branch() != nullptr) {
@@ -273,11 +276,44 @@ ActorContainer CompositionProject::CreateActor(const htree::Tree& tree, Handness
     
     htree::ratio_index_t r = node_region.region.RatioIndexXY();
     auto it = cm.find(r);
+    std::size_t color_index = 0;
     if (it == cm.end()) {
-      std::size_t color_index = color_dist(rng);
-      while (used_colors.find(color_index) != used_colors.end()) {
-        color_index = color_dist(rng);
+      for (;;) {
+        if (possible_colors.empty()) {
+          
+          possible_colors.resize(Colors::all.size());
+          std::iota(possible_colors.begin(), possible_colors.end(), 0);
+          max_color_dist *= 0.5;
+          std::cout << "ran out of colors, resetting color dist to " << max_color_dist << std::endl;
+        }
+        
+        std::size_t color_pos_index = color_dist(rng) % possible_colors.size();
+        color_index = possible_colors[color_pos_index];
+
+        const Color& c = Colors::all[color_index];
+        bool exists = false;
+        for (size_t other_color_index : used_colors) {
+          const Color &other_color = Colors::all[other_color_index];
+          double dist = Color::Diff(c, other_color);
+          if (dist < max_color_dist) {
+          /*
+            std::cout << c.Red() << "," << c.Green() << "," << c.Blue() <<
+              " is too similar to " << other_color.Red() << ", " <<
+              other_color.Green() << ", " << other_color.Blue() <<
+              " dist is " << dist << std::endl;
+              */
+            exists = true;
+            break;
+          }
+        }
+        
+        if (!exists) {
+          break;
+        } else {
+          possible_colors.erase(possible_colors.begin() + color_pos_index);
+        }
       }
+      
       auto color = Colors::all[color_index];
       used_colors.insert(color_index);
       it = cm.insert(std::make_pair(r, color)).first;

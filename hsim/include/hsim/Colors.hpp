@@ -18,6 +18,24 @@ struct Color {
   :name(name), value(value)
   {}
   
+  static double Diff(const Color &lhs, const Color &rhs);
+  
+  int Red() const
+  {
+    return (value >> 16) & 0xFF;
+  }
+  
+  int Green() const
+  {
+    return (value >> 8) & 0xFF;
+  }
+  
+  int Blue() const
+  {
+    return (value) & 0xFF;
+  }
+  
+  
   std::string name;
   int value;
 };
