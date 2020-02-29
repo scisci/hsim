@@ -273,8 +273,13 @@ void renderLoop()
   
   
   sEngine = new hsim::PxEngine();
-  //sIteration.reset(new hsim::Iteration(*sEngine));
-  sIteration.reset(new hsim::CompositionDesigner(*sEngine));
+  
+  // Uncomment below line for the 3d physx tester
+  sIteration.reset(new hsim::Iteration(*sEngine));
+  
+  // Uncomment below line for the 2d composition wall generator
+  //sIteration.reset(new hsim::CompositionDesigner(*sEngine));
+  
   sIteration->Next();
   
   
