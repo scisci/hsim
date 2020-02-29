@@ -301,6 +301,8 @@ public:
     const RigidBody& rigid_body = static_cast<const RigidBody&>(*actor_.actor.get());
 
     const Real cat_radius = 0.125;
+    
+    jump_solver_.Seed(last_seed_);
     const bool result = jump_solver_.Solve(rigid_body);
     
     auto samples = jump_solver_.Vertices();

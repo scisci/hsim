@@ -126,6 +126,11 @@ public:
       rng_(seed)
   {}
   
+  void Seed(int64_t seed)
+  {
+    rng_.seed(seed);
+  }
+  
   void SetSampleSpace(const SampleSpace& sample_space)
   {
     sample_space_ = sample_space;
@@ -149,13 +154,27 @@ public:
   }
   
 private:
+  SampleSpace::VectorType SeededSample(const SampleSpace &sample_space)
+  {
+    SampleSpace::VectorType r(sample_space.dim());
+    std::uniform_real_distribution<> dis(0.0, 1.0);
+    auto &min = sample_space.min();
+    auto &max = sample_space.max();
+    for(SampleSpace::Index d=0; d<sample_space.dim(); ++d)
+    {
+        r[d] = min[d] + (max[d] - min[d]) * dis(rng_);
+      
+    }
+    return r;
+  }
+  
   std::pair<Vector3, bool> SampleInternal(
     const SampleSpace& sample_space,
     Real ray_dist)
   {
     const int max_attempts = 5;
     for (int i = 0; i < max_attempts; ++i) {
-      Vector3 point = sample_space.sample();
+      Vector3 point = SeededSample(sample_space);//sample_space.sample();
 
       point(sample_axis_) = dir_(sample_axis_) >= 0 ?
         sample_space.min()[sample_axis_] : sample_space.max()[sample_axis_];

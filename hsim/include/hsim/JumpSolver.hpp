@@ -42,6 +42,11 @@ public:
    planner_(&sampler_, steerer_, validator_)
   {}
   
+  void Seed(int64_t seed)
+  {
+    sampler_.Seed(seed);
+  }
+  
   bool Solve(const RigidBody& body)
   {
     // We reuse these structures so we need to clear them

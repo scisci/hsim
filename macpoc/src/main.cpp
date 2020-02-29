@@ -62,7 +62,9 @@ namespace
 
 static hsim::Handness handness = hsim::Handness::kRight;
   
-
+  // On failure automatically move next.
+  // avoid this if you are trying to load files
+bool auto_next = false;
 hsim::PxEngine *sEngine;
 std::vector<unsigned char> pixel_data;
 std::string save_path;
@@ -216,7 +218,9 @@ void renderCallback()
 
   hsim::IterationStatus status = sIteration->Step();
   if (status == hsim::IterationStatus::kFailed) {
-    sIteration->Next();
+    if (auto_next) {
+      sIteration->Next();
+    }
   }
   
   
@@ -328,6 +332,7 @@ void renderLoop()
 
 int main(int argc, char *argv[])
 {
+  std::cout << "Key commands:\nEnter: next\nr: retry\nw: write file\no: open file\np: picture" << std::endl;
 
 #ifdef RENDER_SNIPPET
   renderLoop();
