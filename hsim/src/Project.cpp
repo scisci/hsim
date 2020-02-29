@@ -14,10 +14,10 @@ std::unique_ptr<htree::Tree> Project::GenerateTree()
 {
   std::uniform_int_distribution<int64_t> seed_dist(0, std::numeric_limits<int64_t>::max());
   htree::RatioSourcePtr ratio_source(new htree::golden::GoldenRatioSource());
-  double container_ratio_xy = 0.5;
-  double container_ratio_zy = 0.5;
+  double container_ratio_xy = params_.xy_ratio;
+  double container_ratio_zy = params_.zy_ratio;
   
-  int num_leaves = std::uniform_int_distribution<>(100, 200)(rng); // 200 - 400
+  int num_leaves = std::uniform_int_distribution<>(params_.min_leaves,params_.max_leaves)(rng); // 200 - 400
 
   htree::RandomBasicGenerator gen(ratio_source, container_ratio_xy, container_ratio_zy, num_leaves, seed_dist(rng));
   return gen.Generate();

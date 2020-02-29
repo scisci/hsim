@@ -56,12 +56,25 @@ struct ActorContainer {
   std::vector<Color> color_map;
 };
 
+struct ProjectParameters {
+  double xy_ratio;
+  double zy_ratio;
+  int min_leaves;
+  int max_leaves;
+};
+
 class Project {
 public:
   Project()
   :seed_(0),
    rng(seed_)
-  {}
+  {
+    params_.xy_ratio = 0.681;
+    params_.zy_ratio = 4.0;
+    params_.min_leaves = 60;
+    params_.max_leaves = 100;
+
+  }
   
   virtual ~Project() {}
   
@@ -82,9 +95,17 @@ public:
     const htree::StringNodeAttributes& attributes,
     Handness handness);
   
+  const ProjectParameters& params() const
+  {
+    return params_;
+  }
   
+  void set_params(const ProjectParameters &params)
+  {
+    params_ = params;
+  }
 private:
-  
+  ProjectParameters params_;
   int64_t seed_;
   std::mt19937_64 rng;
 };
@@ -363,9 +384,17 @@ public:
     proj_file.open(path);
     
     int64_t seed;
+    ProjectParameters params;
     proj_file >> seed;
+    proj_file >> seed;
+    proj_file >> params.xy_ratio;
+    proj_file >> params.zy_ratio;
+    proj_file >> params.min_leaves;
+    proj_file >> params.max_leaves;
 
     Clear();
+    
+    project_.set_params(params);
     BuildFromSeed(seed);
   }
   
@@ -484,10 +513,17 @@ public:
       }
     }
     
-    // First lets write the project which is just the seed
+    // First lets write the project which is the seed and params
     std::ofstream proj_file;
     proj_file.open(directory + "/project.txt");
-    proj_file << last_seed_;
+    ProjectParameters params = project_.params();
+    
+    proj_file << last_seed_ << '\n'; // build seed
+    proj_file << last_seed_ << '\n';; // path seed
+    proj_file << params.xy_ratio << '\n';
+    proj_file << params.zy_ratio << '\n';
+    proj_file << params.min_leaves << '\n';
+    proj_file << params.max_leaves << '\n';
     proj_file << std::endl;
     proj_file.close();
     
