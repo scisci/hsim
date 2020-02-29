@@ -69,8 +69,8 @@ public:
   :seed_(0),
    rng(seed_)
   {
-    params_.xy_ratio = 0.681;
-    params_.zy_ratio = 4.0;
+    params_.xy_ratio = 0.618;
+    params_.zy_ratio = 1.618;
     params_.min_leaves = 60;
     params_.max_leaves = 100;
 
@@ -160,6 +160,7 @@ public:
   virtual void Open(const std::string& path) = 0;
   virtual void Write(const std::string& directory) = 0;
   virtual void DrawExtras() = 0;
+  virtual bool Intersect() = 0;
   virtual IterationStatus Step() = 0;
 };
 
@@ -291,9 +292,11 @@ public:
       } else {
         if (static_cast<const RigidBody&>(*actor_.actor.get()).Shapes().size() > max_boxes_) {
           state_ = 4;
-        } else if (!Intersect()) {
+        } else {
           state_ = 4;
-        }
+        }/* else if (!Intersect()) {
+          state_ = 4;
+        }*/
         // Done
       }
     }
@@ -551,9 +554,11 @@ public:
     }
     
     const RigidBody& rigid_body = static_cast<const RigidBody&>(*actor_.actor.get());
-    Real plan_scale = 0.5;
+    Real plan_scale = 0.5; // scaled down from 2 meters height I believe
     std::ofstream plan_file;
     plan_file.open(directory + "/plan.txt");
+    // unit specifies how we want to output the values, not the format going in
+    // which is always meters
     PlanBuilder pbuild(PlanUnit::kInches, plan_scale, Handness::kRight);
     pbuild.Write(plan_file, rigid_body, actor_.color_map);
     plan_file.close();

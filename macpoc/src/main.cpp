@@ -142,6 +142,10 @@ void keyboardCallback(unsigned char key, int x, int y)
     });
   }
   
+  if (key == 'i') {
+    sIteration->Intersect();
+  }
+  
   if (key == 'o') {
     TestFile::OpenFile([](std::string path) {
       sIteration->Open(path);
