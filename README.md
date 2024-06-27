@@ -2,7 +2,7 @@
 
 ## The idea
 
-Create a system the can generate sculptures based on a set of constraints. Specifically, for the first incarnation of this project the constraints were set as follows:
+Create a system that can generate sculptures based on a set of constraints. Specifically, for the first incarnation of this project the constraints were set as follows:
 
   - The sculpture must be composed of volumes whose 3 dimensions belong to a predefined set.
   - The sculpture must be stable under the standard laws of physics on earth, even after tapping it.
@@ -20,7 +20,7 @@ We then perform thousands of simulations of randomized volumes until a volume pa
 
 ## Results
 
-Screen grabs:
+Realtime generative captures:
 
 [![Screengrab](https://img.youtube.com/vi/iyXrs_LCj44/0.jpg)](https://www.youtube.com/watch?v=iyXrs_LCj44)
 
