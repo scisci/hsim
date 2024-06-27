@@ -20,14 +20,19 @@ We then perform thousands of simulations of randomized volumes until a volume pa
 
 ## Results
 
-Realtime generative captures:
+**Realtime generative captures**:
 
 [![Screengrab](https://img.youtube.com/vi/iyXrs_LCj44/0.jpg)](https://www.youtube.com/watch?v=iyXrs_LCj44)
 
 [![Screengrab](https://img.youtube.com/vi/zLRhMjnGBsE/0.jpg)](https://www.youtube.com/watch?v=zLRhMjnGBsE)
 
 
-A built sculpture:
+**Installed in Flush Meadows Park for NYC Parks commission**:
+
+[![Screengrab](https://img.youtube.com/vi/FECVBXs5Kds/0.jpg)](https://www.youtube.com/watch?v=FECVBXs5Kds)
+
+
+**A built sculpture**:
 
 ![A sculpture with a jump path](img/hsim_built.jpg)
 
