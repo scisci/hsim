@@ -1,24 +1,32 @@
 # hsim
 
-The idea with this project is to create a system the can generate sculptures or furniture based on a set of constraints. Specifically, for the first incarnation of this project the constraints were set as follows:
+## The idea
 
-  - The sculpture must be composed of atomic volumes whose 3 dimensions are constrained to ratios from a predefined set. For instance, if we define the ratio set to be [1.0, 0.5] the sculpture can only consist of cubes or rectangles (regardless of absolute size) where one dimension is half of either of the other dimensions of the volume.
-  - The sculpture must be stable under the standard laws of physics on earth. This means that if the object was built out of a material of consistent density and all adjoining volumes were fused together, then even with a slight push, it would **not** topple over.
+Create a system the can generate sculptures based on a set of constraints. Specifically, for the first incarnation of this project the constraints were set as follows:
+
+  - The sculpture must be composed of volumes whose 3 dimensions belong to a predefined set.
+  - The sculpture must be stable under the standard laws of physics on earth, even after tapping it.
   - The sculpture must be climbable by a cat.
 
-To achieve the above requirements, we implement 3 systems.
+## The implementation
 
-  1. A randomized volume generator (custom htree system).
+We implement 3 systems:
+
+  1. A randomized volume generator (custom system for splitting volumes based on ratio).
   2. A physics system (Used Nvidia PhysX).
   3. A motion planning system for the cat (parabolic motion planner borrowed from research papers).
 
-We then perform thousands of simulations of randomized volumes until a volume passes all tests -- it stands -- and their is a valid path for the cat. If the tests pass, we consider building the sculpture for our cat.
+We then perform thousands of simulations of randomized volumes until a volume passes all tests. For instance, we generate the volume, we then tap it from all sides to see if it falls over, and then we create a robot cat to see if it can jump to the top of the sculpture.
 
-Simulation screengrabs:
+## Results
+
+Screen grabs:
+
 [![Screengrab](https://img.youtube.com/vi/iyXrs_LCj44/0.jpg)](https://www.youtube.com/watch?v=iyXrs_LCj44)
 
 A built sculpture:
 
+![A sculpture with a jump path](img/hsim_built.jpg)
 
 
 # Errata
